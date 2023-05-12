@@ -1,0 +1,297 @@
+﻿@model BerkutPayConfigurationModel
+
+@{
+    Layout = "_ConfigurePlugin";
+}
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <form asp-controller="BerkutPay" asp-action="Configure" method="post">
+
+                    @*// Yapı Kredi \\*@
+                    <input type="hidden" asp-for="YKB_MERCHANT_ID" value="@Model.YKB_MERCHANT_ID" />
+                    <input type="hidden" asp-for="YKB_TERMINAL_ID" value="@Model.YKB_TERMINAL_ID" />
+                    <input type="hidden" asp-for="YKB_POSNET_ID" value="@Model.YKB_POSNET_ID" />
+                    <input type="hidden" asp-for="YKB_XML_SERVICE_URL" value="@Model.YKB_XML_SERVICE_URL" />
+                    <input type="hidden" asp-for="YKB_ENCKEY" value="@Model.YKB_ENCKEY" />
+                    <input type="hidden" asp-for="YKB_OOS_TDS_SERVICE_URL" value="@Model.YKB_OOS_TDS_SERVICE_URL" />
+                    <input type="hidden" asp-for="YKB_MERCHANT_INIT_URL" value="@Model.YKB_MERCHANT_INIT_URL" />
+                    <input type="hidden" asp-for="YKB_MERCHANT_RETURN_URL" value="@Model.YKB_MERCHANT_RETURN_URL" />
+                    <input type="hidden" asp-for="YKB_OPEN_A_NEW_WINDOW" value="@Model.YKB_OPEN_A_NEW_WINDOW" />
+                    <input type="hidden" asp-for="YKB_THREE_D" value="@Model.YKB_THREE_D" />
+                    @*\\ Yapı Kredi //*@
+
+                    <div class="card-body">
+                        <div class="col">
+                            <div class="form-group row">  @*Yapı Kredi Bankasi satırı*@
+                                <div class="col-md-3">
+                                    <nop-override-store-checkbox asp-for="YKB_IsActive_OverrideForStore" asp-input="YKB_IsActive" asp-store-scope="@Model.ActiveStoreScopeConfiguration" />
+                                    <nop-label asp-for="YKB_IsActive" />
+                                </div>
+                                <div class="col-md-6">
+                                    <nop-editor asp-for="YKB_IsActive" />
+                                    <span asp-validation-for="YKB_IsActive"></span>
+                                </div>
+                            </div>
+                            <div class="form-group row">  @*Garanti Bankasi satırı*@
+                                <div class="col-md-3">
+                                    <nop-override-store-checkbox asp-for="GB_IsActive_OverrideForStore" asp-input="GB_IsActive" asp-store-scope="@Model.ActiveStoreScopeConfiguration" />
+                                    <nop-label asp-for="GB_IsActive" />
+                                </div>
+                                <div class="col-md-6">
+                                    <nop-editor asp-for="GB_IsActive" />
+                                    <span asp-validation-for="GB_IsActive"></span>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <button type="submit" name="save" class="btn btn-primary">@T("Admin.Common.Save")</button>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+
+                @*// Yapı Kredi \\*@
+                <div class="card-header" style="@(Model.YKB_IsActive ? "background-color: darkblue; color: lightgray; cursor: pointer;" : "background-color: gray; color: white;")" id="yapiKrediToggle">
+                    <h2 class="text-center mb-0 d-inline-block">Yapı Kredi</h2>
+                    <i class="fas fa-chevron-down float-right mt-2 mr-2" id="yapiKrediChevron"></i>
+                </div>
+                <form asp-controller="BerkutPay" asp-action="Configure" method="post">
+                    <input type="hidden" asp-for="YKB_IsActive" value="true" />
+                    <div class="card-body yapiKrediCardBody" style="display: none;">
+                        <div class="col">
+                            <div class="form-group row">
+                                <div class="col-3">
+                                    <nop-label asp-for="YKB_MERCHANT_ID" />
+                                </div>
+                                <div class="col-9">
+                                    <nop-editor asp-for="YKB_MERCHANT_ID" />
+                                </div>
+                            </div>
+                            <div class="form-group row">
+                                <div class="col-3">
+                                    <nop-label asp-for="YKB_TERMINAL_ID" />
+                                </div>
+                                <div class="col-9">
+                                    <nop-editor asp-for="YKB_TERMINAL_ID" />
+                                </div>
+                            </div>
+                            <div class="form-group row">
+                                <div class="col-3">
+                                    <nop-label asp-for="YKB_POSNET_ID" />
+                                </div>
+                                <div class="col-9">
+                                    <nop-editor asp-for="YKB_POSNET_ID" />
+                                </div>
+                            </div>
+                            <div class="form-group row">
+                                <div class="col-3">
+                                    <nop-label asp-for="YKB_XML_SERVICE_URL" />
+                                </div>
+                                <div class="col-9">
+                                    <nop-editor asp-for="YKB_XML_SERVICE_URL" />
+                                </div>
+                            </div>
+                            <div class="form-group row">
+                                <div class="col-3">
+                                    <nop-label asp-for="YKB_ENCKEY" />
+                                </div>
+                                <div class="col-9">
+                                    <nop-editor asp-for="YKB_ENCKEY" />
+                                </div>
+                            </div>
+                            <div class="form-group row">
+                                <div class="col-3">
+                                    <nop-label asp-for="YKB_OOS_TDS_SERVICE_URL" />
+                                </div>
+                                <div class="col-9">
+                                    <nop-editor asp-for="YKB_OOS_TDS_SERVICE_URL" />
+                                </div>
+                            </div>
+                            <div class="form-group row">
+                                <div class="col-3">
+                                    <nop-label asp-for="YKB_MERCHANT_INIT_URL" />
+                                </div>
+                                <div class="col-9">
+                                    <nop-editor asp-for="YKB_MERCHANT_INIT_URL" />
+                                </div>
+                            </div>
+                            <div class="form-group row">
+                                <div class="col-3">
+                                    <nop-label asp-for="YKB_MERCHANT_RETURN_URL" />
+                                </div>
+                                <div class="col-9">
+                                    <nop-editor asp-for="YKB_MERCHANT_RETURN_URL" />
+                                </div>
+                            </div>
+                            <div class="form-group row">
+                                <div class="col-md-3">
+                                    <nop-override-store-checkbox asp-for="YKB_OPEN_A_NEW_WINDOW_OverrideForStore" asp-input="YKB_OPEN_A_NEW_WINDOW" asp-store-scope="@Model.ActiveStoreScopeConfiguration" />
+                                    <nop-label asp-for="YKB_OPEN_A_NEW_WINDOW" />
+                                </div>
+                                <div class="col-md-6">
+                                    <nop-editor asp-for="YKB_OPEN_A_NEW_WINDOW" />
+                                    <span asp-validation-for="YKB_OPEN_A_NEW_WINDOW"></span>
+                                </div>
+                            </div>
+                            <div class="form-group row">
+                                <div class="col-md-3">
+                                    <nop-override-store-checkbox asp-for="YKB_THREE_D_OverrideForStore" asp-input="YKB_THREE_D" asp-store-scope="@Model.ActiveStoreScopeConfiguration" />
+                                    <nop-label asp-for="YKB_THREE_D" />
+                                </div>
+                                <div class="col-md-6">
+                                    <nop-editor asp-for="YKB_THREE_D" />
+                                    <span asp-validation-for="YKB_THREE_D"></span>
+                                </div>
+                            </div>
+                            <div class="form-group row">
+                                <div class="col-md-3">
+                                    <nop-override-store-checkbox asp-for="YKB_PROVISION_OverrideForStore" asp-input="YKB_PROVISION" asp-store-scope="@Model.ActiveStoreScopeConfiguration" />
+                                    <nop-label asp-for="YKB_PROVISION" />
+                                </div>
+                                <div class="col-md-6">
+                                    <nop-editor asp-for="YKB_PROVISION" />
+                                    <span asp-validation-for="YKB_PROVISION"></span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-footer">
+                            <button type="submit" name="save" class="btn btn-primary">@T("Admin.Common.Save")</button>
+                        </div>
+                    </div>
+                </form>
+                @*\\ Yapı Kredi //*@
+
+                @*// Garanti Bankasi \\*@
+                <div class="card-header" style="@(Model.GB_IsActive ? "background-color: green; color: white; cursor: pointer;" : "background-color: gray; color: white;")" id="garantiBankasiToggle">
+                    <h2 class="text-center mb-0 d-inline-block">Garanti Bankası</h2>
+                    <i class="fas fa-chevron-down float-right mt-2 mr-2" id="garantiBankasiChevron"></i>
+                </div>
+                <form asp-controller="BerkutPay" asp-action="Configure" method="post">
+                    <input type="hidden" asp-for="GB_IsActive" value="true" />
+                    <div class="card-body garantiBankasiCardBody" style="display: none;">
+                        <div class="col">
+                            <div class="form-group row">
+                                <div class="col-3">
+                                    <nop-label asp-for="YKB_MERCHANT_ID" />
+                                </div>
+                                <div class="col-9">
+                                    <nop-editor asp-for="YKB_MERCHANT_ID" />
+                                </div>
+                            </div>
+                            <div class="form-group row">
+                                <div class="col-3">
+                                    <nop-label asp-for="YKB_TERMINAL_ID" />
+                                </div>
+                                <div class="col-9">
+                                    <nop-editor asp-for="YKB_TERMINAL_ID" />
+                                </div>
+                            </div>
+                            <div class="form-group row">
+                                <div class="col-3">
+                                    <nop-label asp-for="YKB_POSNET_ID" />
+                                </div>
+                                <div class="col-9">
+                                    <nop-editor asp-for="YKB_POSNET_ID" />
+                                </div>
+                            </div>
+                            <div class="form-group row">
+                                <div class="col-3">
+                                    <nop-label asp-for="YKB_XML_SERVICE_URL" />
+                                </div>
+                                <div class="col-9">
+                                    <nop-editor asp-for="YKB_XML_SERVICE_URL" />
+                                </div>
+                            </div>
+                            <div class="form-group row">
+                                <div class="col-3">
+                                    <nop-label asp-for="YKB_ENCKEY" />
+                                </div>
+                                <div class="col-9">
+                                    <nop-editor asp-for="YKB_ENCKEY" />
+                                </div>
+                            </div>
+                            <div class="form-group row">
+                                <div class="col-3">
+                                    <nop-label asp-for="YKB_OOS_TDS_SERVICE_URL" />
+                                </div>
+                                <div class="col-9">
+                                    <nop-editor asp-for="YKB_OOS_TDS_SERVICE_URL" />
+                                </div>
+                            </div>
+                            <div class="form-group row">
+                                <div class="col-3">
+                                    <nop-label asp-for="YKB_MERCHANT_INIT_URL" />
+                                </div>
+                                <div class="col-9">
+                                    <nop-editor asp-for="YKB_MERCHANT_INIT_URL" />
+                                </div>
+                            </div>
+                            <div class="form-group row">
+                                <div class="col-3">
+                                    <nop-label asp-for="YKB_MERCHANT_RETURN_URL" />
+                                </div>
+                                <div class="col-9">
+                                    <nop-editor asp-for="YKB_MERCHANT_RETURN_URL" />
+                                </div>
+                            </div>
+                            <div class="form-group row">
+                                <div class="col-md-3">
+                                    <nop-override-store-checkbox asp-for="YKB_OPEN_A_NEW_WINDOW_OverrideForStore" asp-input="YKB_OPEN_A_NEW_WINDOW" asp-store-scope="@Model.ActiveStoreScopeConfiguration" />
+                                    <nop-label asp-for="YKB_OPEN_A_NEW_WINDOW" />
+                                </div>
+                                <div class="col-md-6">
+                                    <nop-editor asp-for="YKB_OPEN_A_NEW_WINDOW" />
+                                    <span asp-validation-for="YKB_OPEN_A_NEW_WINDOW"></span>
+                                </div>
+                                <div class="col-md-3"></div>
+                            </div>
+                            <div class="form-group row">
+                                <div class="col-md-3">
+                                    <nop-override-store-checkbox asp-for="YKB_THREE_D_OverrideForStore" asp-input="YKB_THREE_D" asp-store-scope="@Model.ActiveStoreScopeConfiguration" />
+                                    <nop-label asp-for="YKB_THREE_D" />
+                                </div>
+                                <div class="col-md-6">
+                                    <nop-editor asp-for="YKB_THREE_D" />
+                                    <span asp-validation-for="YKB_THREE_D"></span>
+                                </div>
+                                <div class="col-md-3"></div>
+                            </div>
+                        </div>
+                        <div class="card-footer">
+                            <button type="submit" name="save" class="btn btn-primary">@T("Admin.Common.Save")</button>
+                        </div>
+                    </div>
+                </form>
+                @*\\ Garanti Bankasi //*@
+
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    $(function () {
+        var YKB_IsActive = @Model.YKB_IsActive.ToString().ToLower();
+        if (YKB_IsActive) {
+            $("#yapiKrediToggle").on("click", function () {
+                $("#yapiKrediChevron").toggleClass("fa-chevron-down fa-chevron-up");
+                $(".yapiKrediCardBody").slideToggle();
+            });
+        } else {
+            $("#yapiKrediToggle").css("cursor", "not-allowed");
+        }
+    });
+    $(function () {
+        var GB_IsActive = @Model.GB_IsActive.ToString().ToLower();
+        if (GB_IsActive) {
+            $("#garantiBankasiToggle").on("click", function () {
+                $("#garantiBankasiChevron").toggleClass("fa-chevron-down fa-chevron-up");
+                $(".garantiBankasiCardBody").slideToggle();
+            });
+        } else {
+            $("#garantiBankasiToggle").css("cursor", "not-allowed");
+        }
+    });
+</script>

@@ -1,0 +1,18 @@
+﻿{
+  "InstalledPluginNames": [
+    "Obsolete field, using only for compatibility"
+  ],
+  "InstalledPlugins": [
+    {
+      "SystemName": "Payments.CheckMoneyOrder",
+      "Version": "1.51"
+    },
+    {
+      "SystemName": "Payments.BerkutPay",
+      "Version": "0.1"
+    }
+  ],
+  "PluginNamesToUninstall": [],
+  "PluginNamesToDelete": [],
+  "PluginNamesToInstall": []
+}
