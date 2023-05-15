@@ -26,12 +26,12 @@
     }
 
     #installment-row {
-        text-align:center;
+        text-align: center;
         display: none;
     }
 
-    #bank-icon{
-        text-align:center;
+    #bank-icon {
+        text-align: center;
     }
 
     #installment-options {
@@ -102,158 +102,48 @@
 
 
 <script>
+    $(document).ready(function () {
 
-    // 'loadXLSX' fonksiyonu, XLSX kütüphanesini dinamik olarak yükleyin
-    // Yükleme tamamlandığında, verilen 'callback' fonksiyonunu çalıştırın
-    function loadXLSX(callback) {
-        var script = document.createElement('script');
-        script.src = 'https://unpkg.com/xlsx@0.17.0/dist/xlsx.full.min.js';
-        script.onload = function () {
-            if (callback) callback();
-        };
-        script.onerror = function () {
-            console.error('XLSX kütüphanesi yüklenemedi');
-        };
-        document.head.appendChild(script);
-    }
-</script>
-<script>
-    
-    // Yapı Kredi BIN numaralarını saklayan değişken
-    let yapiKrediBinsCache;
+        $("input[name='CardNumber']").on("input", function () {
+            var prefix = $(this).val().substring(0, 6);
 
-    // Yapı Kredi BIN numaralarını başlatmayı deneyin
-    async function initYapiKrediBins() {
-        if (!yapiKrediBinsCache) {
-            yapiKrediBinsCache = await fetchYapiKrediBins();
-        }
-    }
-
-    // Yapı Kredi BIN numaralarını XLSX dosyasından almak için bu fonksiyonu kullanın
-    async function fetchYapiKrediBins() {
-        const proxyUrl = "https://cors-anywhere.herokuapp.com/"; //değişmesi gerek
-        const targetUrl =
-            "https://www.yapikredipos.com.tr/_assets/files/8_digit_bin_listesi_yapikredi.xlsx";
-        const url = proxyUrl + targetUrl;
-        const response = await fetch(url);
-        const arrayBuffer = await response.arrayBuffer();
-        const data = new Uint8Array(arrayBuffer);
-        const workbook = XLSX.read(data, { type: "array" });
-        const sheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[sheetName];
-        const jsonData = XLSX.utils.sheet_to_json(worksheet);
-        return jsonData;
-    }
-
-    // Belirli bir BIN numarasının Yapı Kredi'ye ait olup olmadığını kontrol etmek için bu fonksiyonu kullanın
-    function checkIfYapiKredi(bin, bins) {
-        bin = parseInt(bin, 10);
-        const entry = bins.find((entry) => entry["BIN"] === bin);
-        return entry ? entry["KART TİPİ"] : null;
-    }
-
-    // Taksit seçeneklerini gösterme veya gizleme işlevi
-    function showInstallmentOptions(cardType) {
-        if (cardType && cardType.toLowerCase().includes("kredi")) {
-            document.querySelector("#installment-row").style.display = "block";
-        } else {
-            document.querySelector("#installment-row").style.display = "none";
-        }
-    }
-
-    // Kart numarası alanındaki değişiklikleri izleyin
-    document.querySelector("#CardNumber").addEventListener("input", async (event) => {
-        const inputValue = event.target.value;
-
-        if (inputValue.length >= 8) {
-            const firstEightDigits = inputValue.slice(0, 8);
-            const cardType = checkIfYapiKredi(firstEightDigits, yapiKrediBinsCache);
-
-            // Eğer kart Yapı Kredi'ye aitse, banka ikonunu ve taksit seçeneklerini göster
-            if (cardType) {
-                showInstallmentOptions(cardType);
-                document.querySelector("#bank-icon").innerHTML = `<img src="@iconUrl_YKB" alt="Yapı Kredi" />`;
-                document.querySelector("#bank-icon").style.display = "block";
+            if (prefix.length < 6) {
+                $('#bank-icon').hide();
+                $('#installment-row').hide();
             } else {
-                // Kart Yapı Kredi'ye ait değilse, banka ikonunu ve taksit seçeneklerini gizle
-                document.querySelector("#bank-icon").innerHTML = "";
-                document.querySelector("#bank-icon").style.display = "none";
-                document.querySelector("#installment-row").style.display = "none";
+
+                $.ajax({
+                    url: '@Url.Action("GetCardInfo", "BerkutPay", new { area = "Admin" })',
+                    type: 'GET',
+                    data: { prefixNumber: prefix },
+                    success: function (data) {
+
+                        if (data.isSuccess) {
+
+                            if (data.bankId == 1) {
+                                $('#bank-icon').html('<img src="' + '@iconUrl_YKB' + '" alt="YKB Logo">');
+                            } else if (data.bankId == 2) {
+                                $('#bank-icon').html('<img src="' + '@iconUrl_VB' + '" alt="VB Logo">');
+                            }
+                            $('#bank-icon').show();
+
+                            if (data.cardType == 0) {
+                                $('#installment-row').show();
+                            }
+
+                        } else {
+                            $('#bank-icon').hide();
+                            $('#installment-row').hide();
+                        }
+                    },
+
+                    error: function (jqXHR, textStatus, errorThrown) {
+                        console.log("AJAX request failed. Status: " + textStatus + ", Error: " + errorThrown);
+                        $('#bank-icon').hide();
+                        $('#installment-row').hide();
+                    }
+                });
             }
-        } else {
-            // Kart numarası 8 haneden kısaysa, banka ikonunu ve taksit seçeneklerini gizle
-            document.querySelector("#bank-icon").innerHTML = "";
-            document.querySelector("#bank-icon").style.display = "none";
-            document.querySelector("#installment-row").style.display = "none";
-        }
+        });
     });
-
-    // XLSX kütüphanesini yükleyin ve Yapı Kredi BIN numaralarını başlatın
-    loadXLSX(initYapiKrediBins);
-
-</script> @*YapıKredi*@
-<script>
-
-    //let vakifBinsCache;
-
-    //async function initVakifBins() {
-    //    if (!vakifBinsCache) {
-    //        vakifBinsCache = await fetchVakifBins();
-    //    }
-    //}
-
-    //async function fetchVakifBins() {
-    //    const proxyUrl = "https://cors-anywhere.herokuapp.com/"; //değişmesi gerek
-    //    const targetUrl =
-    //        "https://www.yapikredipos.com.tr/_assets/files/8_digit_bin_listesi_vakifbank.xlsx";
-    //    const url = proxyUrl + targetUrl;
-    //    const response = await fetch(url);
-    //    const arrayBuffer = await response.arrayBuffer();
-    //    const data = new Uint8Array(arrayBuffer);
-    //    const workbook = XLSX.read(data, { type: "array" });
-    //    const sheetName = workbook.SheetNames[0];
-    //    const worksheet = workbook.Sheets[sheetName];
-    //    const jsonData = XLSX.utils.sheet_to_json(worksheet);
-    //    return jsonData;
-    //}
-
-    //function checkIfVakif(bin, bins) {
-    //    bin = parseInt(bin, 10);
-    //    const entry = bins.find((entry) => entry["BIN"] === bin);
-    //    return entry ? entry["KART TİPİ"] : null;
-    //}
-
-    //function showInstallmentOptions(cardType) {
-    //    if (cardType && cardType.toLowerCase().includes("kredi")) {
-    //        document.querySelector("#installment-row").style.display = "block";
-    //    } else {
-    //        document.querySelector("#installment-row").style.display = "none";
-    //    }
-    //}
-
-    //document.querySelector("#CardNumber").addEventListener("input", async (event) => {
-    //    const inputValue = event.target.value;
-
-    //    if (inputValue.length >= 8) {
-    //        const firstEightDigits = inputValue.slice(0, 8);
-    //        const cardType = checkIfVakif(firstEightDigits, vakifBinsCache);
-
-    //        if (cardType) {
-    //            showInstallmentOptions(cardType);
-    //            document.querySelector("#bank-icon").innerHTML = `<img src="@iconUrl_VB" alt="Vakıf Bank" />`;
-    //            document.querySelector("#bank-icon").style.display = "block";
-    //        } else {
-    //            document.querySelector("#bank-icon").innerHTML = "";
-    //            document.querySelector("#bank-icon").style.display = "none";
-    //            document.querySelector("#installment-row").style.display = "none";
-    //        }
-    //    } else {
-    //        document.querySelector("#bank-icon").innerHTML = "";
-    //        document.querySelector("#bank-icon").style.display = "none";
-    //        document.querySelector("#installment-row").style.display = "none";
-    //    }
-    //});
-
-    //loadXLSX(initVakifBins);
-
-</script> @*VakıfBank*@
+</script>

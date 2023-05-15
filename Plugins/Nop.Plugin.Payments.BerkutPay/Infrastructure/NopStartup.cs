@@ -2,6 +2,7 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Nop.Core.Infrastructure;
+using Nop.Plugin.Payments.BerkutPay.Services;
 using Nop.Plugin.Payments.BerkutPay.Services.IServices;
 
 namespace Nop.Plugin.Payments.BerkutPay.Infrastructure
@@ -17,7 +18,8 @@ namespace Nop.Plugin.Payments.BerkutPay.Infrastructure
 
         public void ConfigureServices(IServiceCollection services, IConfiguration configuration)
         {
-            services.AddScoped<IYKB_Service, IYKB_Service>();
+            services.AddScoped<IYKB_Service, YKB_Service>();
+            services.AddScoped<ICardService, CardService>();
         }
     }
 }

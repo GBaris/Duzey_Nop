@@ -1,17 +1,10 @@
 ﻿using System.Threading.Tasks;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Nop.Core;
-using Nop.Core.Domain.Orders;
-using Nop.Data;
 using Nop.Plugin.Payments.BerkutPay.Models;
-using Nop.Services.Common;
+using Nop.Plugin.Payments.BerkutPay.Services.IServices;
 using Nop.Services.Configuration;
-using Nop.Services.Customers;
 using Nop.Services.Localization;
 using Nop.Services.Messages;
-using Nop.Services.Orders;
-using Nop.Services.Payments;
 using Nop.Web.Framework;
 using Nop.Web.Framework.Controllers;
 using Nop.Web.Framework.Mvc.Filters;
@@ -32,19 +25,7 @@ namespace Nop.Plugin.Payments.BerkutPay.Controllers
         private readonly ISettingService _settingService;
         private readonly INotificationService _notificationService;
         private readonly ILocalizationService _localizationService;
-        private readonly IStoreContext _storeContext;
-        private readonly IRepository<Order> _orderRepository;
-        private readonly IOrderProcessingService _orderProcessingService;
-        private readonly IWorkContext _workContext;
-        private readonly IOrderService _orderService;
-        private readonly OrderSettings _orderSettings;
-        private readonly IShoppingCartService _shoppingCartService;
-        private readonly ICustomerService _customerService;
-        private readonly IPaymentService _paymentService;
-        private readonly IGenericAttributeService _genericAttributeService;
-        private readonly IWebHelper _webHelper;
-        private readonly IHttpContextAccessor _httpContextAccessor;
-        private readonly BerkutPaySettings _berkutPaySettings;
+        private readonly ICardService _cardService;
 
         #endregion
 
@@ -54,37 +35,14 @@ namespace Nop.Plugin.Payments.BerkutPay.Controllers
             ISettingService settingService,
             INotificationService notificationService,
             ILocalizationService localizationService,
-            IStoreContext storeContext,
-            IRepository<Order> orderRepository,
-            IOrderProcessingService orderProcessingService,
-            IWorkContext workContext,
-            IOrderService orderService,
-            OrderSettings orderSettings,
-            IShoppingCartService shoppingCartService,
-            ICustomerService customerService,
-            IPaymentService paymentService,
-            IGenericAttributeService genericAttributeService,
-            IWebHelper webHelper,
-            IHttpContextAccessor httpContextAccessor,
-            BerkutPaySettings berkutPaySettings
+            ICardService cardService
             )
         {
             _settingService = settingService;
             _notificationService = notificationService;
             _localizationService = localizationService;
-            _storeContext = storeContext;
-            _orderRepository = orderRepository;
-            _orderProcessingService = orderProcessingService;
-            _workContext = workContext;
-            _orderService = orderService;
-            _orderSettings = orderSettings;
-            _shoppingCartService = shoppingCartService;
-            _customerService = customerService;
-            _paymentService = paymentService;
-            _genericAttributeService = genericAttributeService;
-            _webHelper = webHelper;
-            _httpContextAccessor = httpContextAccessor;
-            _berkutPaySettings = berkutPaySettings;
+            _cardService = cardService;
+
         }
 
         #endregion
@@ -109,6 +67,7 @@ namespace Nop.Plugin.Payments.BerkutPay.Controllers
                 YKB_MERCHANT_RETURN_URL = settings.YKB_MERCHANT_RETURN_URL,
                 YKB_OPEN_A_NEW_WINDOW = settings.YKB_OPEN_A_NEW_WINDOW,
                 YKB_THREE_D = settings.YKB_THREE_D,
+                YKB_PROVISION = settings.YKB_PROVISION,
 
                 #endregion
             };
@@ -151,5 +110,23 @@ namespace Nop.Plugin.Payments.BerkutPay.Controllers
         }
 
 
+        //BIN nımarasıyla card kontrolü
+        public ActionResult GetCardInfo(string prefixNumber)
+        {
+            var card = _cardService.GetCardByPrefix(prefixNumber);
+            if (card != null)
+            {
+                return Json(new
+                {
+                    bankId = card.BankId,
+                    cardType = card.Type,
+                    isSuccess = true
+                });
+            }
+            return Json(new
+            {
+                isSuccess = false
+            });
+        }
     }
 }
