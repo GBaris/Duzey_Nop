@@ -1,11 +1,16 @@
 ﻿{
   "Group": "Payment methods",
   "FriendlyName": "Banka / Kredi Kartı",
-  "SystemName": "Payments.BerkutPay",
-  "Version": "0.1",
-  "SupportedVersions": [ "4.60" ],
+  "SupportedVersions": [
+    "4.60"
+  ],
   "Author": "Berkut Technology",
   "DisplayOrder": 1,
   "FileName": "Nop.Plugin.Payments.BerkutPay.dll",
-  "Description": "Berkut Sanal Pos Entegrasyonu"
+  "Description": "Berkut Sanal Pos Entegrasyonu",
+  "LimitedToStores": [],
+  "LimitedToCustomerRoles": [],
+  "DependsOnSystemNames": [],
+  "SystemName": "Payments.BerkutPay",
+  "Version": "0.1"
 }

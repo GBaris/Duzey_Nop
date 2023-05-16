@@ -15,14 +15,36 @@
 
 
   <ItemGroup>
-    <Folder Include="Content\" />
-    <Folder Include="Data\Builder\" />
-    <Folder Include="Data\Domain\" />
-    <Folder Include="Validators\" />
+    <Folder Include="Content\css\" />
   </ItemGroup>
 
 
   <ItemGroup>
+    <Compile Update="Data\Domain\Bank.cs">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Compile>
+    <Compile Update="Data\Domain\BerkutPayOrder.cs">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Compile>
+    <Compile Update="Data\Domain\Card.cs">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Compile>
+  </ItemGroup>
+
+
+  <ItemGroup>
+    <None Update="Content\icons\Albaraka_Icon.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="Content\icons\AnadoluBank_Icon.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="Content\icons\VakıfBank_Icon.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="Content\icons\YKB_Icon.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Update="logo.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>

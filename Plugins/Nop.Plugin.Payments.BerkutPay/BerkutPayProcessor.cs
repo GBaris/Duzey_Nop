@@ -1,11 +1,17 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Nop.Core;
 using Nop.Core.Domain.Orders;
+using Nop.Plugin.Payments.BerkutPay.Components;
+using Nop.Plugin.Payments.BerkutPay.Models;
+using Nop.Plugin.Payments.BerkutPay.Services.IServices;
+using Nop.Plugin.Payments.BerkutPay.Validators;
 using Nop.Services.Configuration;
 using Nop.Services.Localization;
+using Nop.Services.Orders;
 using Nop.Services.Payments;
 using Nop.Services.Plugins;
 
@@ -19,23 +25,37 @@ namespace Nop.Plugin.Payments.BerkutPay
         private readonly ISettingService _settingService;
         private readonly ILocalizationService _localizationService;
         private readonly BerkutPaySettings _berkutPaySettings;
+        private readonly IOrderProcessingService _orderProcessingService;
+        private readonly IOrderTotalCalculationService _orderTotalCalculationService;
+        private readonly IYKB_Service _ykbService;
+
 
         #endregion
 
         #region Ctor
 
-        public BerkutPayProcessor(IWebHelper webHelper, ISettingService settingService,
-            ILocalizationService localizationService, BerkutPaySettings berkutPaySettings)
+        public BerkutPayProcessor(
+            IWebHelper webHelper, 
+            ISettingService settingService,
+            ILocalizationService localizationService, 
+            BerkutPaySettings berkutPaySettings,
+            IOrderProcessingService orderProcessingService,
+            IOrderTotalCalculationService orderTotalCalculationService, 
+            IYKB_Service ykbService
+            )
         {
             _webHelper = webHelper;
             _settingService = settingService;
             _localizationService = localizationService;
             _berkutPaySettings = berkutPaySettings;
+            _orderProcessingService = orderProcessingService;
+            _orderTotalCalculationService = orderTotalCalculationService;
+            _ykbService = ykbService;
         }
 
         #endregion
 
-        public Task<ProcessPaymentResult> ProcessPaymentAsync(ProcessPaymentRequest processPaymentRequest)
+        public async Task<ProcessPaymentResult> ProcessPaymentAsync(ProcessPaymentRequest processPaymentRequest)
         {
             if (_berkutPaySettings.YKB_IsActive)
             {
@@ -43,7 +63,7 @@ namespace Nop.Plugin.Payments.BerkutPay
                 {
                     if (_berkutPaySettings.YKB_PROVISION)
                     {
-
+                        return await _ykbService.ProcessPayment3DAuthAsync(processPaymentRequest);
                     }
                     else
                     {
@@ -65,79 +85,153 @@ namespace Nop.Plugin.Payments.BerkutPay
             else if (_berkutPaySettings.GB_IsActive)
             {
                 throw new NotImplementedException();
-
             }
-            throw new NotImplementedException();
+
+            // If none of the conditions are met, return null or handle it based on your requirement
+            return null;
         }
 
-
-        public Task<CancelRecurringPaymentResult> CancelRecurringPaymentAsync(CancelRecurringPaymentRequest cancelPaymentRequest)
+        public async Task PostProcessPaymentAsync(PostProcessPaymentRequest postProcessPaymentRequest)
         {
-            throw new NotImplementedException();
-        }
-
-        public Task<bool> CanRePostProcessPaymentAsync(Order order)
-        {
-            throw new NotImplementedException();
+            var order = postProcessPaymentRequest.Order;
+            if (_berkutPaySettings.YKB_IsActive)
+            {
+                if (_berkutPaySettings.YKB_THREE_D)
+                {
+                    if (_berkutPaySettings.YKB_PROVISION)
+                    {
+                        if (_orderProcessingService.CanMarkOrderAsAuthorized(order))
+                        {
+                            await _orderProcessingService.MarkAsAuthorizedAsync(order);
+                            return;
+                        }
+                    }
+                    else
+                    {
+                        if (_orderProcessingService.CanMarkOrderAsPaid(order))
+                        {
+                            await _orderProcessingService.MarkOrderAsPaidAsync(order);
+                            return;
+                        }
+                    }
+                }
+                else
+                {
+                    if (_berkutPaySettings.YKB_PROVISION)
+                    {
+                        if (_orderProcessingService.CanMarkOrderAsAuthorized(order))
+                        {
+                            await _orderProcessingService.MarkAsAuthorizedAsync(order);
+                            return;
+                        }
+                    }
+                    else
+                    {
+                        if (_orderProcessingService.CanMarkOrderAsPaid(order))
+                        {
+                            await _orderProcessingService.MarkOrderAsPaidAsync(order);
+                            return;
+                        }
+                    }
+                }
+            }
+            else if (_berkutPaySettings.GB_IsActive)
+            {
+                throw new NotImplementedException();
+            }
+            else
+            {
+                throw new Exception("No payment method is active.");
+            }
         }
 
         public Task<CapturePaymentResult> CaptureAsync(CapturePaymentRequest capturePaymentRequest)
         {
-            throw new NotImplementedException();
-        }
-
-        public Task<decimal> GetAdditionalHandlingFeeAsync(IList<ShoppingCartItem> cart)
-        {
-            throw new NotImplementedException();
-        }
-
-        public Task<ProcessPaymentRequest> GetPaymentInfoAsync(IFormCollection form)
-        {
-            throw new NotImplementedException();
-        }
-
-        public Task<string> GetPaymentMethodDescriptionAsync()
-        {
-            throw new NotImplementedException();
-        }
-
-        public Type GetPublicViewComponent()
-        {
-            throw new NotImplementedException();
-        }
-
-        public Task<bool> HidePaymentMethodAsync(IList<ShoppingCartItem> cart)
-        {
-            throw new NotImplementedException();
-        }
-
-        public Task PostProcessPaymentAsync(PostProcessPaymentRequest postProcessPaymentRequest)
-        {
-            throw new NotImplementedException();
-        }
-
-
-
-        public Task<ProcessPaymentResult> ProcessRecurringPaymentAsync(ProcessPaymentRequest processPaymentRequest)
-        {
-            throw new NotImplementedException();
+            return Task.FromResult(new CapturePaymentResult { Errors = new[] { "Capture method not supported" } });
         }
 
         public Task<RefundPaymentResult> RefundAsync(RefundPaymentRequest refundPaymentRequest)
         {
-            throw new NotImplementedException();
+            return Task.FromResult(new RefundPaymentResult { Errors = new[] { "Refund method not supported" } });
         }
+
+        public Task<CancelRecurringPaymentResult> CancelRecurringPaymentAsync(CancelRecurringPaymentRequest cancelPaymentRequest)
+        {
+            return Task.FromResult(new CancelRecurringPaymentResult { Errors = new[] { "Recurring payment not supported" } });
+        }
+
+        async Task<decimal> IPaymentMethod.GetAdditionalHandlingFeeAsync(IList<ShoppingCartItem> cart)
+        {
+            return await _orderTotalCalculationService.CalculatePaymentAdditionalFeeAsync(cart, 0, false);
+        }
+
+        public Task<ProcessPaymentRequest> GetPaymentInfoAsync(IFormCollection form)
+        {
+            return Task.FromResult(new ProcessPaymentRequest
+            {
+                CreditCardType = form["CreditCardType"],
+                CreditCardName = form["CardholderName"],
+                CreditCardNumber = form["CardNumber"],
+                CreditCardExpireMonth = int.Parse(form["ExpireMonth"]),
+                CreditCardExpireYear = int.Parse(form["ExpireYear"]),
+                CreditCardCvv2 = form["CardCode"]
+            });
+        }
+
+        public async Task<string> GetPaymentMethodDescriptionAsync()
+        {
+            return await _localizationService.GetResourceAsync("Nop.Plugin.Payments.BerkutPay.Fields.Berkut.PaymentMethodDescription");
+
+        }
+
+        public Type GetPublicViewComponent()
+        {
+            return typeof(BerkutPayViewComponent);
+        }
+
+        Task<bool> IPaymentMethod.HidePaymentMethodAsync(IList<ShoppingCartItem> cart)
+        {
+            return Task.FromResult(false);
+        }
+
+        public Task<ProcessPaymentResult> ProcessRecurringPaymentAsync(ProcessPaymentRequest processPaymentRequest)
+        {
+            return Task.FromResult(new ProcessPaymentResult { Errors = new[] { "Recurring payment not supported" } });
+        }
+
 
         public Task<IList<string>> ValidatePaymentFormAsync(IFormCollection form)
         {
-            throw new NotImplementedException();
+            var warnings = new List<string>();
+
+            //validate
+            var validator = new PaymentInfoValidator(_localizationService);
+            var model = new PaymentInfoModel
+            {
+                CardholderName = form["CardholderName"],
+                CardNumber = form["CardNumber"],
+                CardCode = form["CardCode"],
+                ExpireMonth = form["ExpireMonth"],
+                ExpireYear = form["ExpireYear"]
+            };
+            var validationResult = validator.Validate(model);
+            if (!validationResult.IsValid)
+                warnings.AddRange(validationResult.Errors.Select(error => error.ErrorMessage));
+
+            return Task.FromResult<IList<string>>(warnings);
         }
 
         public Task<VoidPaymentResult> VoidAsync(VoidPaymentRequest voidPaymentRequest)
         {
-            throw new NotImplementedException();
+            return Task.FromResult(new VoidPaymentResult { Errors = new[] { "Void method not supported" } });
         }
+        public Task<bool> CanRePostProcessPaymentAsync(Order order)
+        {
+            if (order == null)
+                throw new ArgumentNullException(nameof(order));
 
+            return Task.FromResult(false);
+        }
 
 
         #region Overrides

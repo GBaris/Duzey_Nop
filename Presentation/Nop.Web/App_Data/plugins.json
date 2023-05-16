@@ -10,6 +10,10 @@
     {
       "SystemName": "Payments.BerkutPay",
       "Version": "0.1"
+    },
+    {
+      "SystemName": "Shipping.FixedByWeightByTotal",
+      "Version": "2.36"
     }
   ],
   "PluginNamesToUninstall": [],
