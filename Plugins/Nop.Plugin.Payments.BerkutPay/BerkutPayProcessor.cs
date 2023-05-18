@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Nop.Core;
 using Nop.Core.Domain.Orders;
+using Nop.Core.Domain.ScheduleTasks;
 using Nop.Plugin.Payments.BerkutPay.Components;
 using Nop.Plugin.Payments.BerkutPay.Models;
 using Nop.Plugin.Payments.BerkutPay.Services.IServices;
@@ -14,6 +15,7 @@ using Nop.Services.Localization;
 using Nop.Services.Orders;
 using Nop.Services.Payments;
 using Nop.Services.Plugins;
+using Nop.Services.ScheduleTasks;
 
 namespace Nop.Plugin.Payments.BerkutPay
 {
@@ -28,6 +30,7 @@ namespace Nop.Plugin.Payments.BerkutPay
         private readonly IOrderProcessingService _orderProcessingService;
         private readonly IOrderTotalCalculationService _orderTotalCalculationService;
         private readonly IYKB_Service _ykbService;
+        private readonly IScheduleTaskService _scheduleTaskService;
 
 
         #endregion
@@ -41,7 +44,7 @@ namespace Nop.Plugin.Payments.BerkutPay
             BerkutPaySettings berkutPaySettings,
             IOrderProcessingService orderProcessingService,
             IOrderTotalCalculationService orderTotalCalculationService, 
-            IYKB_Service ykbService
+            IYKB_Service ykbService, IScheduleTaskService scheduleTaskService
             )
         {
             _webHelper = webHelper;
@@ -51,6 +54,7 @@ namespace Nop.Plugin.Payments.BerkutPay
             _orderProcessingService = orderProcessingService;
             _orderTotalCalculationService = orderTotalCalculationService;
             _ykbService = ykbService;
+            _scheduleTaskService = scheduleTaskService;
         }
 
         #endregion
@@ -74,11 +78,11 @@ namespace Nop.Plugin.Payments.BerkutPay
                 {
                     if (_berkutPaySettings.YKB_PROVISION)
                     {
-
+                        return await _ykbService.SendStandarAuthRequestAsync(processPaymentRequest);
                     }
                     else
                     {
-
+                        return await _ykbService.SendStandartSaleRequestAsync(processPaymentRequest);
                     }
                 }
             }
@@ -87,7 +91,6 @@ namespace Nop.Plugin.Payments.BerkutPay
                 throw new NotImplementedException();
             }
 
-            // If none of the conditions are met, return null or handle it based on your requirement
             return null;
         }
 
@@ -147,12 +150,12 @@ namespace Nop.Plugin.Payments.BerkutPay
 
         public Task<CapturePaymentResult> CaptureAsync(CapturePaymentRequest capturePaymentRequest)
         {
-            return Task.FromResult(new CapturePaymentResult { Errors = new[] { "Capture method not supported" } });
+            return Task.FromResult(new CapturePaymentResult { Errors = new[] { "Refund method not supported" } });
         }
 
-        public Task<RefundPaymentResult> RefundAsync(RefundPaymentRequest refundPaymentRequest)
+        public async Task<RefundPaymentResult> RefundAsync(RefundPaymentRequest refundPaymentRequest)
         {
-            return Task.FromResult(new RefundPaymentResult { Errors = new[] { "Refund method not supported" } });
+            return await _ykbService.RefundYKBAsync(refundPaymentRequest);
         }
 
         public Task<CancelRecurringPaymentResult> CancelRecurringPaymentAsync(CancelRecurringPaymentRequest cancelPaymentRequest)
@@ -272,6 +275,18 @@ namespace Nop.Plugin.Payments.BerkutPay
             };
             await _settingService.SaveSettingAsync(settings);
 
+            if (await _scheduleTaskService.GetTaskByTypeAsync("Nop.Plugin.Payments.BerkutPay.Services.OrderStatusUpdateTask") is null)
+            {
+                await _scheduleTaskService.InsertTaskAsync(new ScheduleTask
+                {
+                    Enabled = true,
+                    LastEnabledUtc = DateTime.UtcNow,
+                    Seconds = 5,
+                    Name = "BerkutPay Order Status Update",
+                    Type = "Nop.Plugin.Payments.BerkutPay.Services.OrderStatusUpdateTask, Nop.Plugin.Payments.BerkutPay"
+                });
+            }
+
 
             //locales
 
@@ -330,8 +345,16 @@ namespace Nop.Plugin.Payments.BerkutPay
 
         public override async Task UninstallAsync()
         {
+
             //settings
             await _settingService.DeleteSettingAsync<BerkutPaySettings>();
+
+            //scheduleTask
+            var scheduleTask = await _scheduleTaskService.GetTaskByTypeAsync("Nop.Plugin.Payments.BerkutPay.Services.OrderStatusUpdateTask");
+            if (scheduleTask != null)
+            {
+                await _scheduleTaskService.DeleteTaskAsync(scheduleTask);
+            }
 
             //locales
             await _localizationService.DeleteLocaleResourcesAsync("Plugins.Payments.BerkutPay");

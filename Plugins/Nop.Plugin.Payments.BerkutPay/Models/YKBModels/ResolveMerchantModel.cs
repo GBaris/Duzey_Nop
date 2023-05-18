@@ -14,5 +14,6 @@ namespace Nop.Plugin.Payments.BerkutPay.Models.YKB_Models
         public string MdStatus { get; set; }
         public string MdErrorMessage { get; set; }
         public string Mac { get; set; }
+        public string ErrorMessage { get; internal set; }
     }
 }

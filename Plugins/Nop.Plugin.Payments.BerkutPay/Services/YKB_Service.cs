@@ -7,10 +7,12 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 using System.Xml;
+using DocumentFormat.OpenXml.Office2010.Excel;
 using Microsoft.AspNetCore.Http;
 using Nop.Core;
 using Nop.Core.Domain.Customers;
 using Nop.Core.Domain.Orders;
+using Nop.Core.Domain.Payments;
 using Nop.Core.Domain.Stores;
 using Nop.Core.Http.Extensions;
 using Nop.Data;
@@ -23,6 +25,7 @@ using Nop.Services.Localization;
 using Nop.Services.Messages;
 using Nop.Services.Orders;
 using Nop.Services.Payments;
+using static SkiaSharp.HarfBuzz.SKShaper;
 //using Task = System.Threading.Tasks.Task;
 
 namespace Nop.Plugin.Payments.BerkutPay.Services
@@ -49,10 +52,11 @@ namespace Nop.Plugin.Payments.BerkutPay.Services
 
         #endregion
 
+
         #region Ctor
 
         public YKB_Service(BerkutPaySettings berkutPaySettings, IHttpContextAccessor httpContextAccessor,
-            INotificationService notificationService, IPaymentService paymentService, 
+            INotificationService notificationService, IPaymentService paymentService,
             IGenericAttributeService genericAttributeService, IRepository<Order> orderRepository,
             IOrderProcessingService orderProcessingService, IShoppingCartService shoppingCartService,
             ICustomerService customerService, OrderSettings orderSettings,
@@ -76,6 +80,13 @@ namespace Nop.Plugin.Payments.BerkutPay.Services
 
         #endregion
 
+
+        #region 3D ile ödeme
+
+        #region I. Aşama
+
+        #region Auth
+
         public async Task<ProcessPaymentResult> ProcessPayment3DAuthAsync(ProcessPaymentRequest processPaymentRequest)
         {
             var bankResult = await SendOOSRequest3DAuthAsync(processPaymentRequest);
@@ -86,8 +97,6 @@ namespace Nop.Plugin.Payments.BerkutPay.Services
             }
 
             bankResult.AddError("Doğrulama için bankanıza yönlendiriliyorsunuz.");
-
-
 
             await RedirectBankUrl(bankResult);
 
@@ -100,7 +109,7 @@ namespace Nop.Plugin.Payments.BerkutPay.Services
             processPaymentRequest.CustomValues.TryGetValue("Amount", out var amount);
 
             var parameters = CreateOOSResolveMerchantRequest(bankPacket.ToString(), merchantPacket.ToString(), sign.ToString(), mac.ToString());
-            var resolveMerchantResult = await SendOOSResolveMerchantRequestAsync(parameters);
+            var resolveMerchantResult = await SendOOSResolveMerchantRequestAsync(bankPacket.ToString(), merchantPacket.ToString(), sign.ToString(), mac.ToString());
 
             var tempMac = GetMacData(xid.ToString(), amount.ToString());
 
@@ -122,8 +131,6 @@ namespace Nop.Plugin.Payments.BerkutPay.Services
                 return tranDataResult;
             }
         }
-
-        #region I. Aşama
 
         private Dictionary<string, string> CreateOOSRequestAuth(ProcessPaymentRequest processPaymentRequest)
         {
@@ -216,6 +223,149 @@ namespace Nop.Plugin.Payments.BerkutPay.Services
             return result;
         }
 
+        #endregion
+
+        #region Sale
+
+        public async Task<ProcessPaymentResult> ProcessPayment3DSaleAsync(ProcessPaymentRequest processPaymentRequest)
+        {
+            var bankResult = await SendOOSRequest3DSaleAsync(processPaymentRequest);
+
+            if (bankResult.Errors.Count > 0)
+            {
+                return bankResult;
+            }
+
+            bankResult.AddError("Doğrulama için bankanıza yönlendiriliyorsunuz.");
+
+            await RedirectBankUrl(bankResult);
+
+            processPaymentRequest.CustomValues.TryGetValue("BankPacket", out var bankPacket);
+
+            processPaymentRequest.CustomValues.TryGetValue("MerchantPacket", out var merchantPacket);
+            processPaymentRequest.CustomValues.TryGetValue("Sign", out var sign);
+            processPaymentRequest.CustomValues.TryGetValue("Mac", out var mac);
+            processPaymentRequest.CustomValues.TryGetValue("Xid", out var xid);
+            processPaymentRequest.CustomValues.TryGetValue("Amount", out var amount);
+
+            var parameters = CreateOOSResolveMerchantRequest(bankPacket.ToString(), merchantPacket.ToString(), sign.ToString(), mac.ToString());
+            var resolveMerchantResult = await SendOOSResolveMerchantRequestAsync(bankPacket.ToString(), merchantPacket.ToString(), sign.ToString(), mac.ToString());
+
+            var tempMac = GetMacData(xid.ToString(), amount.ToString());
+
+            if (resolveMerchantResult.MdStatus != "1")
+            {
+                var result = new ProcessPaymentResult();
+                _notificationService.ErrorNotification(BerkutPaymentHelper.GetMDStatusErrorMessage(resolveMerchantResult.MdStatus), true);
+
+                result.AddError(resolveMerchantResult.MdErrorMessage);
+                return result;
+            }
+            else
+            {
+                var tranDataResult = await SendOOSTranDataRequestAsync(processPaymentRequest, bankPacket.ToString(), tempMac, xid.ToString());
+                if (tranDataResult.Errors.Count > 0)
+                {
+                    _notificationService.ErrorNotification(tranDataResult.Errors.First().ToString(), true);
+                }
+                return tranDataResult;
+            }
+        }
+
+        private Dictionary<string, string> CreateOOSRequestSale(ProcessPaymentRequest processPaymentRequest)
+        {
+            string amount = Math.Round(processPaymentRequest.OrderTotal * 100m).ToString("0", new CultureInfo("en-US"));
+            string merchantId = _berkutPaySettings.YKB_MERCHANT_ID;
+            string terminalId = _berkutPaySettings.YKB_TERMINAL_ID;
+            string posnetId = _berkutPaySettings.YKB_POSNET_ID;
+            string orderId = processPaymentRequest.OrderGuid.ToString("N").Substring(0, 20);
+
+            _httpContextAccessor.HttpContext.Session.SetString("BankOrderId", orderId);
+
+            string cardHolderName = processPaymentRequest.CreditCardName;
+            string expireDate = (processPaymentRequest.CreditCardExpireYear % 1000) + "" + (processPaymentRequest.CreditCardExpireMonth.ToString().Count() == 1 ? "0" + processPaymentRequest.CreditCardExpireMonth.ToString() : processPaymentRequest.CreditCardExpireMonth.ToString());
+            string ccno = processPaymentRequest.CreditCardNumber;
+            string cvc = processPaymentRequest.CreditCardCvv2;
+
+            string requestXml = $@"<?xml version=""1.0"" encoding=""utf-8""?>
+                                        <posnetRequest>
+                                            <mid>{merchantId}</mid>
+                                            <tid>{terminalId}</tid>
+                                            <oosRequestData>
+                                                <posnetid>{posnetId}</posnetid>
+                                                <XID>{orderId}</XID>
+                                                <amount>{amount}</amount>
+                                                <currencyCode>TL</currencyCode>
+                                                <installment>00</installment>
+                                                <tranType>Sale</tranType>
+                                                <cardHolderName>{cardHolderName}</cardHolderName>
+                                                <ccno>{ccno}</ccno>
+                                                <expDate>{expireDate}</expDate>
+                                                <cvc>{cvc}</cvc>
+                                            </oosRequestData>
+                                        </posnetRequest>";
+
+            var httpParameters = new Dictionary<string, string>
+            {
+                { "xmldata", requestXml }
+            };
+
+            return httpParameters;
+        }
+
+        private async Task<ProcessPaymentResult> SendOOSRequest3DSaleAsync(ProcessPaymentRequest processPaymentRequest)
+        {
+            var result = new ProcessPaymentResult
+            {
+                AllowStoringCreditCardNumber = false
+            };
+
+            using (HttpClient client = new HttpClient())
+            {
+                try
+                {
+                    var oosRequest = CreateOOSRequestSale(processPaymentRequest);
+
+                    var response = await client.PostAsync(_berkutPaySettings.YKB_XML_SERVICE_URL, new FormUrlEncodedContent(oosRequest));
+                    string responseContent = await response.Content.ReadAsStringAsync();
+
+                    var xmlDocument = new XmlDocument();
+                    xmlDocument.LoadXml(responseContent);
+
+                    if (xmlDocument.SelectSingleNode("posnetResponse/approved") == null || xmlDocument.SelectSingleNode("posnetResponse/approved").InnerText != "1")
+                    {
+                        string errorMessage = xmlDocument.SelectSingleNode("posnetResponse/respText")?.InnerText ?? string.Empty;
+                        if (string.IsNullOrEmpty(errorMessage))
+                            errorMessage = "Ödeme sırasında bir hata oluştu. E01";
+
+                        result.AddError(errorMessage);
+                    }
+                    else
+                    {
+                        result.AuthorizationTransactionResult = responseContent;
+                        result.SubscriptionTransactionId = processPaymentRequest.OrderGuid.ToString("N").Substring(0, 20);
+
+                        string sign = xmlDocument.SelectSingleNode("posnetResponse/oosRequestDataResponse/sign")?.InnerText ?? string.Empty;
+
+                        if (sign == string.Empty)
+                        {
+                            result.AddError(responseContent);
+                        }
+
+                        return result;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    result.AddError(ex.Message);
+                }
+            }
+            return result;
+        }
+
+        #endregion
+
+
         private async Task RedirectBankUrl(ProcessPaymentResult processPaymentResult)
         {
             string responseContent = processPaymentResult.AuthorizationTransactionResult;
@@ -255,7 +405,7 @@ namespace Nop.Plugin.Payments.BerkutPay.Services
 
         #region II. Aşama
 
-        public ProcessPaymentRequest PrepareProcessPaymentRequest(FormResponseModel model, Customer customer, Store store)
+        public async Task<ProcessPaymentRequest> PrepareProcessPaymentRequest(FormResponseModel model, Customer customer, Store store)
         {
             var processPaymentRequest = _httpContextAccessor.HttpContext.Session.Get<ProcessPaymentRequest>("OrderPaymentInfo") ?? new ProcessPaymentRequest();
             processPaymentRequest.CustomValues.Add("BankPacket", model.BankPacket);
@@ -267,11 +417,116 @@ namespace Nop.Plugin.Payments.BerkutPay.Services
             _paymentService.GenerateOrderGuid(processPaymentRequest);
             processPaymentRequest.StoreId = store.Id;
             processPaymentRequest.CustomerId = customer.Id;
-            processPaymentRequest.PaymentMethodSystemName = _genericAttributeService.GetAttributeAsync<string>(customer, NopCustomerDefaults.SelectedPaymentMethodAttribute, store.Id).Result;
-            _httpContextAccessor.HttpContext.Session.Set<ProcessPaymentRequest>("OrderPaymentInfo", processPaymentRequest);
+
+            var resolveMerchantResult = await SendOOSResolveMerchantRequestAsync(model.BankPacket, model.MerchantPacket, model.Sign, model.Mac);
+
+            if (resolveMerchantResult == null)
+            {
+                throw new Exception("Ödeme sırasında bir hata oluştu. E01");
+            }
+
+            var tempMac = GetMacData("Xid", "Amount");
+            processPaymentRequest.CustomValues.Add("tempMac", tempMac);
+
+            if (resolveMerchantResult.MdStatus != "1")
+            {
+                processPaymentRequest.CustomValues.Add("MdStatus", resolveMerchantResult.MdStatus);
+                var placeOrderResult = await _orderProcessingService.PlaceOrderAsync(processPaymentRequest);
+                await HandleSuccessfulOrderAsync(placeOrderResult.PlacedOrder);
+            }
+
             return processPaymentRequest;
         }
 
+        private async Task<ResolveMerchantModel> SendOOSResolveMerchantRequestAsync(string bankData, string merchantData, string sign, string mac)
+        {
+            var parameters = CreateOOSResolveMerchantRequest(bankData, merchantData, sign, mac);
+
+            using (HttpClient client = new HttpClient())
+            {
+                try
+                {
+                    var response = await client.PostAsync(_berkutPaySettings.YKB_XML_SERVICE_URL, new FormUrlEncodedContent(parameters));
+                    string responseContent = await response.Content.ReadAsStringAsync();
+
+                    var xmlDocument = new XmlDocument();
+                    xmlDocument.LoadXml(responseContent);
+
+                    if (xmlDocument.SelectSingleNode("posnetResponse/approved") == null || xmlDocument.SelectSingleNode("posnetResponse/approved").InnerText != "1")
+                    {
+                        string errorMessage = xmlDocument.SelectSingleNode("posnetResponse/respText")?.InnerText ?? string.Empty;
+                        if (string.IsNullOrEmpty(errorMessage))
+                            errorMessage = "Ödeme sırasında bir hata oluştu. E01";
+
+                        return new ResolveMerchantModel { ErrorMessage = errorMessage };
+                    }
+                    else
+                    {
+                        var result = new ResolveMerchantModel
+                        {
+                            Amount = xmlDocument.SelectSingleNode("posnetResponse/oosResolveMerchantDataResponse/amount")?.InnerText ?? string.Empty,
+                            Currency = xmlDocument.SelectSingleNode("posnetResponse/oosResolveMerchantDataResponse/currency")?.InnerText ?? string.Empty,
+                            Xid = xmlDocument.SelectSingleNode("posnetResponse/oosResolveMerchantDataResponse/xid")?.InnerText ?? string.Empty,
+                            Installment = xmlDocument.SelectSingleNode("posnetResponse/oosResolveMerchantDataResponse/installment")?.InnerText ?? string.Empty,
+                            Point = xmlDocument.SelectSingleNode("posnetResponse/oosResolveMerchantDataResponse/point")?.InnerText ?? string.Empty,
+                            PointAmount = xmlDocument.SelectSingleNode("posnetResponse/oosResolveMerchantDataResponse/pointAmount")?.InnerText ?? string.Empty,
+                            TxStatus = xmlDocument.SelectSingleNode("posnetResponse/oosResolveMerchantDataResponse/txStatus")?.InnerText ?? string.Empty,
+                            MdStatus = xmlDocument.SelectSingleNode("posnetResponse/oosResolveMerchantDataResponse/mdStatus")?.InnerText ?? string.Empty,
+                            MdErrorMessage = xmlDocument.SelectSingleNode("posnetResponse/oosResolveMerchantDataResponse/mdErrorMessage")?.InnerText ?? string.Empty,
+                            Mac = xmlDocument.SelectSingleNode("posnetResponse/oosResolveMerchantDataResponse/mac")?.InnerText ?? string.Empty,
+                        };
+
+                        return result;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    return new ResolveMerchantModel { ErrorMessage = ex.Message };
+                }
+            }
+        }
+
+        private Dictionary<string, string> CreateOOSResolveMerchantRequest(string bankData, string merchantData, string sign, string mac)
+        {
+            string merchantId = _berkutPaySettings.YKB_MERCHANT_ID;
+            string terminalId = _berkutPaySettings.YKB_TERMINAL_ID;
+
+            string requestXml = $@"<?xml version=""1.0"" encoding=""utf-8""?>
+                                        <posnetRequest>
+                                            <mid>{merchantId}</mid>
+                                            <tid>{terminalId}</tid>
+                                            <oosResolveMerchantData>
+                                                <bankData>{bankData}</bankData>
+                                                <merchantData>{merchantData}</merchantData>
+                                                <sign>{sign}</sign>
+                                                <mac>{mac}</mac>
+                                            </oosResolveMerchantData>
+                                        </posnetRequest>
+            ";
+
+            var httpParameters = new Dictionary<string, string>
+            {
+                { "xmldata", requestXml }
+            };
+
+            return httpParameters;
+        }
+
+        public string GetMacData(string xid, string amount)
+        {
+            string firstHash = HASH(_berkutPaySettings.YKB_ENCKEY + ';' + _berkutPaySettings.YKB_TERMINAL_ID);
+            string mac = HASH(xid + ';' + amount + ';' + "TL" + ';' + _berkutPaySettings.YKB_MERCHANT_ID + ';' + firstHash);
+            return mac;
+        }
+
+        private string HASH(string originalString)
+        {
+            using (SHA256 sha256Hash = SHA256.Create())
+            {
+                byte[] bytes = sha256Hash.ComputeHash(Encoding.UTF8.GetBytes(originalString));
+                return Convert.ToBase64String(bytes);
+            }
+        }
         public async Task<string> HandlePaymentErrorAsync()
         {
             await _notificationService.ErrorNotificationAsync(new Exception("Lütfen kart bilgilerinizi kontrol edip tekrar deneyiniz."), true);
@@ -283,7 +538,8 @@ namespace Nop.Plugin.Payments.BerkutPay.Services
             _httpContextAccessor.HttpContext.Session.Set<ProcessPaymentRequest>("OrderPaymentInfo", null);
             var postProcessPaymentRequest = new PostProcessPaymentRequest
             {
-                Order = placedOrder
+                Order = placedOrder,
+
             };
             await _paymentService.PostProcessPaymentAsync(postProcessPaymentRequest);
             return;
@@ -316,21 +572,7 @@ namespace Nop.Plugin.Payments.BerkutPay.Services
             return _orderSettings.OnePageCheckoutEnabled || (await _customerService.IsGuestAsync(customer) && !_orderSettings.AnonymousCheckoutAllowed);
         }
 
-        public string GetMacData(string xid, string amount)
-        {
-            string firstHash = HASH(_berkutPaySettings.YKB_ENCKEY + ';' + _berkutPaySettings.YKB_TERMINAL_ID);
-            string mac = HASH(xid + ';' + amount + ';' + "TL" + ';' + _berkutPaySettings.YKB_MERCHANT_ID + ';' + firstHash);
-            return mac;
-        }
 
-        private string HASH(string originalString)
-        {
-            using (SHA256 sha256Hash = SHA256.Create())
-            {
-                byte[] bytes = sha256Hash.ComputeHash(Encoding.UTF8.GetBytes(originalString));
-                return Convert.ToBase64String(bytes);
-            }
-        }
 
         public bool IsValidForm(IFormCollection form)
         {
@@ -339,76 +581,8 @@ namespace Nop.Plugin.Payments.BerkutPay.Services
 
         #endregion
 
-        private Dictionary<string, string> CreateOOSResolveMerchantRequest(string bankData, string merchantData, string sign, string mac)
-        {
-            string merchantId = _berkutPaySettings.YKB_MERCHANT_ID;
-            string terminalId = _berkutPaySettings.YKB_TERMINAL_ID;
+        //Capture işlemi için gerekli yerler
 
-            string requestXml = $@"<?xml version=""1.0"" encoding=""utf-8""?>
-                                        <posnetRequest>
-                                            <mid>{merchantId}</mid>
-                                            <tid>{terminalId}</tid>
-                                            <oosResolveMerchantData>
-                                                <bankData>{bankData}</bankData>
-                                                <merchantData>{merchantData}</merchantData>
-                                                <sign>{sign}</sign>
-                                                <mac>{mac}</mac>
-                                            </oosResolveMerchantData>
-                                        </posnetRequest>
-            ";
-
-            var httpParameters = new Dictionary<string, string>
-            {
-                { "xmldata", requestXml }
-            };
-
-            return httpParameters;
-        }
-        private async Task<ResolveMerchantModel> SendOOSResolveMerchantRequestAsync(Dictionary<string, string> parameters)
-        {
-            using (HttpClient client = new HttpClient())
-            {
-                try
-                {
-                    var response = await client.PostAsync(_berkutPaySettings.YKB_XML_SERVICE_URL, new FormUrlEncodedContent(parameters));
-                    string responseContent = await response.Content.ReadAsStringAsync();
-
-                    var xmlDocument = new XmlDocument();
-                    xmlDocument.LoadXml(responseContent);
-
-                    if (xmlDocument.SelectSingleNode("posnetResponse/approved") == null || xmlDocument.SelectSingleNode("posnetResponse/approved").InnerText != "1")
-                    {
-                        string errorMessage = xmlDocument.SelectSingleNode("posnetResponse/respText")?.InnerText ?? string.Empty;
-                        if (string.IsNullOrEmpty(errorMessage))
-                            errorMessage = "Ödeme sırasında bir hata oluştu. E01";
-                        return null;
-                    }
-                    else
-                    {
-                        var result = new ResolveMerchantModel
-                        {
-                            Amount = xmlDocument.SelectSingleNode("posnetResponse/oosResolveMerchantDataResponse/amount")?.InnerText ?? string.Empty,
-                            Currency = xmlDocument.SelectSingleNode("posnetResponse/oosResolveMerchantDataResponse/currency")?.InnerText ?? string.Empty,
-                            Xid = xmlDocument.SelectSingleNode("posnetResponse/oosResolveMerchantDataResponse/xid")?.InnerText ?? string.Empty,
-                            Installment = xmlDocument.SelectSingleNode("posnetResponse/oosResolveMerchantDataResponse/installment")?.InnerText ?? string.Empty,
-                            Point = xmlDocument.SelectSingleNode("posnetResponse/oosResolveMerchantDataResponse/point")?.InnerText ?? string.Empty,
-                            PointAmount = xmlDocument.SelectSingleNode("posnetResponse/oosResolveMerchantDataResponse/pointAmount")?.InnerText ?? string.Empty,
-                            TxStatus = xmlDocument.SelectSingleNode("posnetResponse/oosResolveMerchantDataResponse/txStatus")?.InnerText ?? string.Empty,
-                            MdStatus = xmlDocument.SelectSingleNode("posnetResponse/oosResolveMerchantDataResponse/mdStatus")?.InnerText ?? string.Empty,
-                            MdErrorMessage = xmlDocument.SelectSingleNode("posnetResponse/oosResolveMerchantDataResponse/mdErrorMessage")?.InnerText ?? string.Empty,
-                            Mac = xmlDocument.SelectSingleNode("posnetResponse/oosResolveMerchantDataResponse/mac")?.InnerText ?? string.Empty,
-                        };
-
-                        return result;
-                    }
-
-                }
-                catch (Exception ex)
-                {
-                    return null;
-                }
-            }
-        }
         private Dictionary<string, string> CreateOOSTranDataRequest(string bankData, string mac)
         {
             string merchantId = _berkutPaySettings.YKB_MERCHANT_ID;
@@ -480,6 +654,266 @@ namespace Nop.Plugin.Payments.BerkutPay.Services
             return result;
         }
 
+        #endregion
 
+
+        #region Posnet ile ödeme
+
+        #region Sale
+
+        public async Task<ProcessPaymentResult> SendStandartSaleRequestAsync(ProcessPaymentRequest processPaymentRequest)
+        {
+            var result = new ProcessPaymentResult
+            {
+                AllowStoringCreditCardNumber = false
+            };
+            result.NewPaymentStatus = PaymentStatus.Pending;
+
+            using (HttpClient client = new HttpClient())
+            {
+                try
+                {
+                    var posnetRequest = CreatePosnetSaleRequest(processPaymentRequest);
+
+                    var response = await client.PostAsync(_berkutPaySettings.YKB_XML_SERVICE_URL, new FormUrlEncodedContent(posnetRequest));
+                    string responseContent = await response.Content.ReadAsStringAsync();
+
+                    var xmlDocument = new XmlDocument();
+                    xmlDocument.LoadXml(responseContent);
+
+                    if (xmlDocument.SelectSingleNode("posnetResponse/approved") == null || xmlDocument.SelectSingleNode("posnetResponse/approved").InnerText != "1")
+                    {
+                        string errorMessage = xmlDocument.SelectSingleNode("posnetResponse/respText")?.InnerText ?? string.Empty;
+                        if (string.IsNullOrEmpty(errorMessage))
+                            errorMessage = "Lütfen kart bilgilerinizi kontrol edip tekrar deneyin.";
+
+                        result.AddError(errorMessage);
+                    }
+                    else
+                    {
+                        string hostlogkey = xmlDocument.SelectSingleNode("posnetResponse/hostlogkey")?.InnerText ?? string.Empty;
+                        string authCode = xmlDocument.SelectSingleNode("posnetResponse/authCode")?.InnerText ?? string.Empty;
+
+                        result.AuthorizationTransactionCode = authCode;
+                        result.AuthorizationTransactionId = hostlogkey;
+                        result.SubscriptionTransactionId = processPaymentRequest.OrderGuid.ToString("N").Substring(0, 24);
+                        result.AuthorizationTransactionResult = responseContent;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    result.AddError(ex.Message);
+                }
+            }
+
+            return result;
+        }
+
+        private Dictionary<string, string> CreatePosnetSaleRequest(ProcessPaymentRequest processPaymentRequest)
+        {
+            string amount = Math.Round(processPaymentRequest.OrderTotal * 100m).ToString("0", new CultureInfo("en-US"));
+            string merchantId = _berkutPaySettings.YKB_MERCHANT_ID;
+            string terminalId = _berkutPaySettings.YKB_TERMINAL_ID;
+            string expireDate = (processPaymentRequest.CreditCardExpireYear % 1000) + "" + (processPaymentRequest.CreditCardExpireMonth.ToString().Count() == 1 ? "0" + processPaymentRequest.CreditCardExpireMonth.ToString() : processPaymentRequest.CreditCardExpireMonth.ToString());
+            string orderId = processPaymentRequest.OrderGuid.ToString("N").Substring(0, 24);
+
+            string requestXml = $@"<?xml version=""1.0"" encoding=""utf-8""?>
+                                        <posnetRequest>
+                                            <mid>{merchantId}</mid>
+                                            <tid>{terminalId}</tid>
+                                            <tranDateRequired>1</tranDateRequired>
+                                            <sale>
+                                                <amount>{amount}</amount>
+                                                <ccno>{processPaymentRequest.CreditCardNumber}</ccno>
+                                                <currencyCode>TL</currencyCode>
+                                                <cvc>{processPaymentRequest.CreditCardCvv2}</cvc>
+                                                <expDate>{expireDate}</expDate>
+                                                <orderID>{orderId}</orderID>
+                                                <installment>00</installment>
+                                            </sale>
+                                        </posnetRequest>";
+
+            var httpParameters = new Dictionary<string, string>
+            {
+                { "xmldata", requestXml }
+            };
+
+            return httpParameters;
+        }
+
+        #endregion
+
+        #region Auth
+
+        public async Task<ProcessPaymentResult> SendStandarAuthRequestAsync(ProcessPaymentRequest processPaymentRequest)
+        {
+            var result = new ProcessPaymentResult
+            {
+                AllowStoringCreditCardNumber = false
+            };
+            result.NewPaymentStatus = PaymentStatus.Pending;
+
+            using (HttpClient client = new HttpClient())
+            {
+                try
+                {
+                    var posnetRequest = CreatePosnetAuthRequest(processPaymentRequest);
+
+                    var response = await client.PostAsync(_berkutPaySettings.YKB_XML_SERVICE_URL, new FormUrlEncodedContent(posnetRequest));
+                    string responseContent = await response.Content.ReadAsStringAsync();
+
+                    var xmlDocument = new XmlDocument();
+                    xmlDocument.LoadXml(responseContent);
+
+                    if (xmlDocument.SelectSingleNode("posnetResponse/approved") == null || xmlDocument.SelectSingleNode("posnetResponse/approved").InnerText != "1")
+                    {
+                        string errorMessage = xmlDocument.SelectSingleNode("posnetResponse/respText")?.InnerText ?? string.Empty;
+                        if (string.IsNullOrEmpty(errorMessage))
+                            errorMessage = "Lütfen kart bilgilerinizi kontrol edip tekrar deneyin.";
+
+                        result.AddError(errorMessage);
+                    }
+                    else
+                    {
+                        string hostlogkey = xmlDocument.SelectSingleNode("posnetResponse/hostlogkey")?.InnerText ?? string.Empty;
+                        string authCode = xmlDocument.SelectSingleNode("posnetResponse/authCode")?.InnerText ?? string.Empty;
+
+                        result.AuthorizationTransactionCode = authCode;
+                        result.AuthorizationTransactionId = hostlogkey;
+                        result.SubscriptionTransactionId = processPaymentRequest.OrderGuid.ToString("N").Substring(0, 24);
+                        result.AuthorizationTransactionResult = responseContent;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    result.AddError(ex.Message);
+                }
+            }
+
+            return result;
+        }
+
+        private Dictionary<string, string> CreatePosnetAuthRequest(ProcessPaymentRequest processPaymentRequest)
+        {
+            string amount = Math.Round(processPaymentRequest.OrderTotal * 100m).ToString("0", new CultureInfo("en-US"));
+            string merchantId = _berkutPaySettings.YKB_MERCHANT_ID;
+            string terminalId = _berkutPaySettings.YKB_TERMINAL_ID;
+            string expireDate = (processPaymentRequest.CreditCardExpireYear % 1000) + "" + (processPaymentRequest.CreditCardExpireMonth.ToString().Count() == 1 ? "0" + processPaymentRequest.CreditCardExpireMonth.ToString() : processPaymentRequest.CreditCardExpireMonth.ToString());
+            string orderId = processPaymentRequest.OrderGuid.ToString("N").Substring(0, 24);
+
+            string requestXml = $@"<?xml version=""1.0"" encoding=""utf-8""?>
+                                        <posnetRequest>
+                                            <mid>{merchantId}</mid>
+                                            <tid>{terminalId}</tid>
+                                            <tranDateRequired>1</tranDateRequired>
+                                            <sale>
+                                                <amount>{amount}</amount>
+                                                <ccno>{processPaymentRequest.CreditCardNumber}</ccno>
+                                                <currencyCode>TL</currencyCode>
+                                                <cvc>{processPaymentRequest.CreditCardCvv2}</cvc>
+                                                <expDate>{expireDate}</expDate>
+                                                <orderID>{orderId}</orderID>
+                                                <installment>00</installment>
+                                            </sale>
+                                        </posnetRequest>";
+
+            var httpParameters = new Dictionary<string, string>
+            {
+                { "xmldata", requestXml }
+            };
+
+            return httpParameters;
+        }
+
+        #endregion
+
+        #endregion
+
+        #region Refund
+
+        public async Task<RefundPaymentResult> RefundYKBAsync(RefundPaymentRequest refundPaymentRequest)
+        {
+            var refundResult = await SendRefundRequestRequestAsync(refundPaymentRequest);
+
+            if (refundResult != null)
+            {
+                return new RefundPaymentResult
+                {
+                    NewPaymentStatus = refundPaymentRequest.IsPartialRefund ? PaymentStatus.PartiallyRefunded : PaymentStatus.Refunded
+                };
+            }
+            else
+            {
+                await _notificationService.ErrorNotificationAsync(new Exception("İade işlemi başarısız"));
+                return new RefundPaymentResult
+                {
+                    Errors = new List<string> { "İade işlemi başarısız" }
+                };
+            }
+        }
+
+        private async Task<RefundPaymentResult> SendRefundRequestRequestAsync(RefundPaymentRequest refundPaymentRequest)
+        {
+            var result = new RefundPaymentResult();
+
+            using (HttpClient client = new HttpClient())
+            {
+                try
+                {
+                    var hostlogkey = refundPaymentRequest.Order.AuthorizationTransactionId;
+                    var amount = refundPaymentRequest.Order.RefundedAmount;
+
+                    var refundRequest = CreateRefoundDataRequest(hostlogkey, amount);
+
+                    var response = await client.PostAsync(_berkutPaySettings.YKB_XML_SERVICE_URL, new FormUrlEncodedContent(refundRequest));
+                    string responseContent = await response.Content.ReadAsStringAsync();
+
+                    var xmlDocument = new XmlDocument();
+                    xmlDocument.LoadXml(responseContent);
+
+                    if (xmlDocument.SelectSingleNode("posnetResponse/approved") == null || xmlDocument.SelectSingleNode("posnetResponse/approved").InnerText != "1")
+                    {
+                        string errorMessage = xmlDocument.SelectSingleNode("posnetResponse/respText")?.InnerText ?? string.Empty;
+                        if (string.IsNullOrEmpty(errorMessage))
+                            errorMessage = "İade sırasında bir hata oluştu. E01";
+
+                        throw new Exception(errorMessage);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    result.AddError(ex.Message);
+                }
+            }
+            return result;
+        }
+
+        private Dictionary<string, string> CreateRefoundDataRequest(string hostlogkey, decimal amount)
+        {
+            string merchantId = _berkutPaySettings.YKB_MERCHANT_ID;
+            string terminalId = _berkutPaySettings.YKB_TERMINAL_ID;
+
+            string requestXml = $@"<?xml version=""1.0"" encoding=""utf-8""?>
+                                        <posnetRequest>
+                                            <mid>{merchantId}</mid>
+                                            <tid>{terminalId}</tid>
+                                            <tranDateRequired>1</tranDateRequired>
+                                            <return>
+                                                <amount></amount>
+                                                <currencyCode>TL</currencyCode>
+                                                <hostLogKey>{hostlogkey}</hostLogKey>
+                                            </return>
+                                        </posnetRequest>";
+
+            var httpParameters = new Dictionary<string, string>
+            {
+                { "xmldata", requestXml }
+            };
+
+            return httpParameters;
+
+        }
+
+        #endregion
     }
 }

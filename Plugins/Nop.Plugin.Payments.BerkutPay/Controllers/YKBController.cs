@@ -110,12 +110,17 @@ namespace Nop.Plugin.Payments.BerkutPay.Controllers
                 throw new Exception(await _localizationService.GetResourceAsync("Checkout.MinOrderPlacementInterval"));
             }
 
-            var processPaymentRequest = _ykbService.PrepareProcessPaymentRequest(model, customer, store);
-            var placeOrderResult = await _orderProcessingService.PlaceOrderAsync(processPaymentRequest);
+            var processPaymentRequest = await _ykbService.PrepareProcessPaymentRequest(model, customer, store);
 
-            if (placeOrderResult.Success)
+
+            if (processPaymentRequest.CustomValues.TryGetValue("MdStatus", out var mdStatus) && (string)mdStatus == "1")
             {
-                await _ykbService.HandleSuccessfulOrderAsync(placeOrderResult.PlacedOrder);
+
+
+                var placeOrderResult = await _orderProcessingService.PlaceOrderAsync(processPaymentRequest);
+
+                
+
                 return RedirectToRoute("CheckoutCompleted", new { orderId = placeOrderResult.PlacedOrder.Id });
             }
             return RedirectToRoute("CheckoutPaymentInfo");

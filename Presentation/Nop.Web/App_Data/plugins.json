@@ -8,12 +8,20 @@
       "Version": "1.51"
     },
     {
+      "SystemName": "Shipping.FixedByWeightByTotal",
+      "Version": "2.36"
+    },
+    {
       "SystemName": "Payments.BerkutPay",
       "Version": "0.1"
     },
     {
-      "SystemName": "Shipping.FixedByWeightByTotal",
-      "Version": "2.36"
+      "SystemName": "Payments.Manual",
+      "Version": "1.60"
+    },
+    {
+      "SystemName": "Payments.CyberSource",
+      "Version": "1.10"
     }
   ],
   "PluginNamesToUninstall": [],

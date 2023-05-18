@@ -15,7 +15,7 @@ namespace Nop.Plugin.Payments.BerkutPay.Services.IServices
     public interface IYKB_Service
     {
         Task<ProcessPaymentResult> ProcessPayment3DAuthAsync(ProcessPaymentRequest processPaymentRequest); // 3D ile Provizyon işlemi başlat
-        ProcessPaymentRequest PrepareProcessPaymentRequest(FormResponseModel model, Customer customer, Store store);
+        Task<ProcessPaymentRequest> PrepareProcessPaymentRequest(FormResponseModel model, Customer customer, Store store);
         bool IsValidForm(IFormCollection form);
         string GetMacData(string xid, string amount);
         Task<bool> IsCheckoutDisabledOrCartEmpty(Customer customer, Store store);
@@ -23,5 +23,11 @@ namespace Nop.Plugin.Payments.BerkutPay.Services.IServices
         Task<bool> IsMinimumOrderPlacementIntervalValidAsync(Customer customer);
         Task HandleSuccessfulOrderAsync(Order placedOrder);
         Task<string> HandlePaymentErrorAsync();
+
+
+        Task<ProcessPaymentResult> SendStandartSaleRequestAsync(ProcessPaymentRequest processPaymentRequest);
+        Task<ProcessPaymentResult> SendStandarAuthRequestAsync(ProcessPaymentRequest processPaymentRequest);
+
+        Task<RefundPaymentResult> RefundYKBAsync(RefundPaymentRequest refundPaymentRequest)
     }
 }

@@ -14,7 +14,9 @@ namespace Nop.Plugin.Payments.BerkutPay.Data
 
             Create.TableFor<Card>();
 
-            Create.TableFor<BerkutPayOrder>();
+            //Create.TableFor<BerkutPayOrder>();
         }
+        
+        
     }
 }
