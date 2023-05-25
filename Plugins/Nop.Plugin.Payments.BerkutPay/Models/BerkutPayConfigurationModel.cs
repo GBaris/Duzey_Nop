@@ -50,6 +50,26 @@ namespace Nop.Plugin.Payments.BerkutPay.Models
         public bool YKB_PROVISION { get; set; }
         public bool YKB_PROVISION_OverrideForStore { get; set; }
 
+        [NopResourceDisplayName("Nop.Plugin.Payments.BerkutPay.Fields.YKB_INSTALLMENT_IsActive")]
+        public bool YKB_INSTALLMENT_IsActive { get; set; }
+        public bool YKB_INSTALLMENT_IsActive_OverrideForStore { get;set; }
+
+        [NopResourceDisplayName("Nop.Plugin.Payments.BerkutPay.Fields.YKB_INSTALLMENT_2")]
+        public bool YKB_INSTALLMENT_2 { get; set; }
+        public bool YKB_INSTALLMENT_2_OverrideForStore { get; set; }
+
+        [NopResourceDisplayName("Nop.Plugin.Payments.BerkutPay.Fields.YKB_INSTALLMENT_3")]
+        public bool YKB_INSTALLMENT_3 { get; set; }
+        public bool YKB_INSTALLMENT_3_OverrideForStore { get; set; }
+
+        [NopResourceDisplayName("Nop.Plugin.Payments.BerkutPay.Fields.YKB_INSTALLMENT_4")]
+        public bool YKB_INSTALLMENT_4 { get; set; }
+        public bool YKB_INSTALLMENT_4_OverrideForStore { get; set; }
+
+        [NopResourceDisplayName("Nop.Plugin.Payments.BerkutPay.Fields.YKB_INSTALLMENT_6")]
+        public bool YKB_INSTALLMENT_6 { get; set; }
+        public bool YKB_INSTALLMENT_6_OverrideForStore { get; set; }
+
         #endregion
 
         #region Garanti Bankasi

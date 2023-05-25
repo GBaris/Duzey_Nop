@@ -38,5 +38,6 @@ namespace Nop.Plugin.Payments.BerkutPay.Models
 
         [NopResourceDisplayName("Payment.CardCode")]
         public string CardCode { get; set; }
+
     }
 }

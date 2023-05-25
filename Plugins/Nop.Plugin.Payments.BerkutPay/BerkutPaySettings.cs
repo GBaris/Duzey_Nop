@@ -18,6 +18,11 @@ namespace Nop.Plugin.Payments.BerkutPay
         public bool YKB_OPEN_A_NEW_WINDOW { get; set; }
         public bool YKB_THREE_D { get; set; }
         public bool YKB_PROVISION { get; set; }
+        public bool YKB_INSTALLMENT_IsActive { get; set; }
+        public bool YKB_INSTALLMENT_2 { get; set; }
+        public bool YKB_INSTALLMENT_3 { get; set; }
+        public bool YKB_INSTALLMENT_4 { get; set; }
+        public bool YKB_INSTALLMENT_6 { get; set; }
 
         #endregion
 

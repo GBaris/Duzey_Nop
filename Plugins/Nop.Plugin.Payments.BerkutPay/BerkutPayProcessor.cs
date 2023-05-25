@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Http;
 using Nop.Core;
 using Nop.Core.Domain.Orders;
 using Nop.Core.Domain.ScheduleTasks;
+using Nop.Data;
 using Nop.Plugin.Payments.BerkutPay.Components;
 using Nop.Plugin.Payments.BerkutPay.Models;
 using Nop.Plugin.Payments.BerkutPay.Services.IServices;
@@ -31,6 +32,7 @@ namespace Nop.Plugin.Payments.BerkutPay
         private readonly IOrderTotalCalculationService _orderTotalCalculationService;
         private readonly IYKB_Service _ykbService;
         private readonly IScheduleTaskService _scheduleTaskService;
+        private readonly IPaymentService _paymentService;
 
 
         #endregion
@@ -38,13 +40,14 @@ namespace Nop.Plugin.Payments.BerkutPay
         #region Ctor
 
         public BerkutPayProcessor(
-            IWebHelper webHelper, 
+            IWebHelper webHelper,
             ISettingService settingService,
-            ILocalizationService localizationService, 
+            ILocalizationService localizationService,
             BerkutPaySettings berkutPaySettings,
             IOrderProcessingService orderProcessingService,
-            IOrderTotalCalculationService orderTotalCalculationService, 
-            IYKB_Service ykbService, IScheduleTaskService scheduleTaskService
+            IOrderTotalCalculationService orderTotalCalculationService,
+            IYKB_Service ykbService, IScheduleTaskService scheduleTaskService,
+            IPaymentService paymentService
             )
         {
             _webHelper = webHelper;
@@ -55,12 +58,14 @@ namespace Nop.Plugin.Payments.BerkutPay
             _orderTotalCalculationService = orderTotalCalculationService;
             _ykbService = ykbService;
             _scheduleTaskService = scheduleTaskService;
+            _paymentService = paymentService;
         }
 
         #endregion
 
         public async Task<ProcessPaymentResult> ProcessPaymentAsync(ProcessPaymentRequest processPaymentRequest)
         {
+            
             if (_berkutPaySettings.YKB_IsActive)
             {
                 if (_berkutPaySettings.YKB_THREE_D)
@@ -71,7 +76,7 @@ namespace Nop.Plugin.Payments.BerkutPay
                     }
                     else
                     {
-
+                        // Burada Provizyon istemeyen fakat 3D özellikli bir metodun çağrılması gerekir
                     }
                 }
                 else
@@ -148,9 +153,9 @@ namespace Nop.Plugin.Payments.BerkutPay
             }
         }
 
-        public Task<CapturePaymentResult> CaptureAsync(CapturePaymentRequest capturePaymentRequest)
+        public async Task<CapturePaymentResult> CaptureAsync(CapturePaymentRequest capturePaymentRequest)
         {
-            return Task.FromResult(new CapturePaymentResult { Errors = new[] { "Refund method not supported" } });
+            return await _ykbService.CapturePosnetAsync(capturePaymentRequest);
         }
 
         public async Task<RefundPaymentResult> RefundAsync(RefundPaymentRequest refundPaymentRequest)
@@ -207,22 +212,27 @@ namespace Nop.Plugin.Payments.BerkutPay
         {
             var warnings = new List<string>();
 
-            //validate
+            // Validate
             var validator = new PaymentInfoValidator(_localizationService);
+
+
             var model = new PaymentInfoModel
             {
                 CardholderName = form["CardholderName"],
                 CardNumber = form["CardNumber"],
                 CardCode = form["CardCode"],
                 ExpireMonth = form["ExpireMonth"],
-                ExpireYear = form["ExpireYear"]
+                ExpireYear = form["ExpireYear"],
             };
+
             var validationResult = validator.Validate(model);
             if (!validationResult.IsValid)
                 warnings.AddRange(validationResult.Errors.Select(error => error.ErrorMessage));
 
+
             return Task.FromResult<IList<string>>(warnings);
         }
+
 
         public Task<VoidPaymentResult> VoidAsync(VoidPaymentRequest voidPaymentRequest)
         {
@@ -263,6 +273,11 @@ namespace Nop.Plugin.Payments.BerkutPay
                 YKB_OPEN_A_NEW_WINDOW = false,
                 YKB_THREE_D = false,
                 YKB_PROVISION = false,
+                YKB_INSTALLMENT_IsActive = false,
+                YKB_INSTALLMENT_2 = false,
+                YKB_INSTALLMENT_3 = false,
+                YKB_INSTALLMENT_4 = false,
+                YKB_INSTALLMENT_6 = false,
 
                 #endregion
 
@@ -325,7 +340,13 @@ namespace Nop.Plugin.Payments.BerkutPay
                 ["Nop.Plugin.Payments.BerkutPay.Fields.YKB_THREE_D"] = "3D Secure",
                 ["Nop.Plugin.Payments.BerkutPay.Fields.YKB_THREE_D.Hint"] = "3D Doğrulama için yönlendirme",
                 ["Nop.Plugin.Payments.BerkutPay.Fields.YKB_PROVISION"] = "Provision",
-                ["Nop.Plugin.Payments.BerkutPay.Fields.YKB_PROVISION.Hint"] = "Provizyonlu satış / Direkt satış"
+                ["Nop.Plugin.Payments.BerkutPay.Fields.YKB_PROVISION.Hint"] = "Provizyonlu satış / Direkt satış",
+                ["Nop.Plugin.Payments.BerkutPay.Fields.YKB_INSTALLMENT_IsActive"] = "Taksit",
+                ["Nop.Plugin.Payments.BerkutPay.Fields.YKB_INSTALLMENT_IsActive.Hint"] = "Kredi kartına taksit var mı?",
+                ["Nop.Plugin.Payments.BerkutPay.Fields.YKB_INSTALLMENT_2"] = "2 Taksit",
+                ["Nop.Plugin.Payments.BerkutPay.Fields.YKB_INSTALLMENT_3"] = "3 Taksit",
+                ["Nop.Plugin.Payments.BerkutPay.Fields.YKB_INSTALLMENT_4"] = "4 Taksit",
+                ["Nop.Plugin.Payments.BerkutPay.Fields.YKB_INSTALLMENT_6"] = "6 Taksit"
             });
 
             #endregion

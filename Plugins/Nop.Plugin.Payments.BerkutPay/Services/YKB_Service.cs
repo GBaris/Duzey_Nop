@@ -7,7 +7,6 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 using System.Xml;
-using DocumentFormat.OpenXml.Office2010.Excel;
 using Microsoft.AspNetCore.Http;
 using Nop.Core;
 using Nop.Core.Domain.Customers;
@@ -21,12 +20,9 @@ using Nop.Plugin.Payments.BerkutPay.Models.YKBModels;
 using Nop.Plugin.Payments.BerkutPay.Services.IServices;
 using Nop.Services.Common;
 using Nop.Services.Customers;
-using Nop.Services.Localization;
 using Nop.Services.Messages;
 using Nop.Services.Orders;
 using Nop.Services.Payments;
-using static SkiaSharp.HarfBuzz.SKShaper;
-//using Task = System.Threading.Tasks.Task;
 
 namespace Nop.Plugin.Payments.BerkutPay.Services
 {
@@ -39,15 +35,12 @@ namespace Nop.Plugin.Payments.BerkutPay.Services
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly INotificationService _notificationService;
         private readonly IPaymentService _paymentService;
-        private readonly IGenericAttributeService _genericAttributeService;
-        private readonly IRepository<Order> _orderRepository;
         private readonly IOrderProcessingService _orderProcessingService;
         private readonly IShoppingCartService _shoppingCartService;
         private readonly ICustomerService _customerService;
         private readonly OrderSettings _orderSettings;
         private readonly IStoreContext _storeContext;
         private readonly IWorkContext _workContext;
-        private readonly ILocalizationService _localizationService;
         private readonly IOrderService _orderService;
 
         #endregion
@@ -60,21 +53,17 @@ namespace Nop.Plugin.Payments.BerkutPay.Services
             IGenericAttributeService genericAttributeService, IRepository<Order> orderRepository,
             IOrderProcessingService orderProcessingService, IShoppingCartService shoppingCartService,
             ICustomerService customerService, OrderSettings orderSettings,
-            IStoreContext storeContext, IWorkContext workContext,
-            ILocalizationService localizationService, IOrderService orderService
+            IOrderService orderService
             )
         {
             _berkutPaySettings = berkutPaySettings;
             _httpContextAccessor = httpContextAccessor;
             _notificationService = notificationService;
             _paymentService = paymentService;
-            _genericAttributeService = genericAttributeService;
-            _orderRepository = orderRepository;
             _orderProcessingService = orderProcessingService;
             _shoppingCartService = shoppingCartService;
             _customerService = customerService;
             _orderSettings = orderSettings;
-            _localizationService = localizationService;
             _orderService = orderService;
         }
 
@@ -825,6 +814,88 @@ namespace Nop.Plugin.Payments.BerkutPay.Services
             return httpParameters;
         }
 
+        public async Task<CapturePaymentResult> CapturePosnetAsync(CapturePaymentRequest capturePaymentRequest)
+        {
+            var captureResult = await SendCaptureRefundRequestAsync(capturePaymentRequest);
+
+            if (captureResult != null)
+            {
+                return new CapturePaymentResult
+                {
+                    NewPaymentStatus = PaymentStatus.Paid
+                };
+            }
+            else
+            {
+                await _notificationService.ErrorNotificationAsync(new Exception("Finansallaştırma işlemi başarısız"));
+                return new CapturePaymentResult
+                {
+                    Errors = new List<string> { "İade işlemi başarısız" }
+                };
+            }
+        }
+
+        private async Task<CapturePaymentResult> SendCaptureRefundRequestAsync(CapturePaymentRequest capturePaymentRequest)
+        {
+            var result = new CapturePaymentResult();
+
+            using (HttpClient client = new HttpClient())
+            {
+                try
+                {
+                    var hostlogkey = capturePaymentRequest.Order.AuthorizationTransactionId.ToString();
+                    var amount = capturePaymentRequest.Order.OrderTotal;
+
+                    var refundRequest = CreateCaptureDataRequest(hostlogkey, amount);
+
+                    var response = await client.PostAsync(_berkutPaySettings.YKB_XML_SERVICE_URL, new FormUrlEncodedContent(refundRequest));
+                    string responseContent = await response.Content.ReadAsStringAsync();
+
+                    var xmlDocument = new XmlDocument();
+                    xmlDocument.LoadXml(responseContent);
+
+                    if (xmlDocument.SelectSingleNode("posnetResponse/approved") == null || xmlDocument.SelectSingleNode("posnetResponse/approved").InnerText != "1")
+                    {
+                        string errorMessage = xmlDocument.SelectSingleNode("posnetResponse/respText")?.InnerText ?? string.Empty;
+                        if (string.IsNullOrEmpty(errorMessage))
+                            errorMessage = "Finansallaştırma sırasında bir hata oluştu. E01";
+
+                        throw new Exception(errorMessage);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    result.AddError(ex.Message);
+                }
+            }
+            return result;
+        }
+
+        private Dictionary<string, string> CreateCaptureDataRequest(string hostlogkey, decimal amount)
+        {
+            string merchantId = _berkutPaySettings.YKB_MERCHANT_ID;
+            string terminalId = _berkutPaySettings.YKB_TERMINAL_ID;
+
+            string requestXml = $@"<?xml version=""1.0"" encoding=""utf-8""?>
+                                        <posnetRequest>
+                                            <mid>{merchantId}</mid>
+                                            <tid>{terminalId}</tid>
+                                            <capt>
+                                                <amount>{amount}</amount>
+                                                <currencyCode>TL</currencyCode>
+                                                <hostLogKey>{hostlogkey}</hostLogKey>
+                                                <installment>00</installment>
+                                            </return>
+                                        </posnetRequest>";
+
+            var httpParameters = new Dictionary<string, string>
+            {
+                { "xmldata", requestXml }
+            };
+
+            return httpParameters;
+        }
+
         #endregion
 
         #endregion
@@ -833,7 +904,7 @@ namespace Nop.Plugin.Payments.BerkutPay.Services
 
         public async Task<RefundPaymentResult> RefundYKBAsync(RefundPaymentRequest refundPaymentRequest)
         {
-            var refundResult = await SendRefundRequestRequestAsync(refundPaymentRequest);
+            var refundResult = await SendRefundRequestAsync(refundPaymentRequest);
 
             if (refundResult != null)
             {
@@ -852,7 +923,7 @@ namespace Nop.Plugin.Payments.BerkutPay.Services
             }
         }
 
-        private async Task<RefundPaymentResult> SendRefundRequestRequestAsync(RefundPaymentRequest refundPaymentRequest)
+        private async Task<RefundPaymentResult> SendRefundRequestAsync(RefundPaymentRequest refundPaymentRequest)
         {
             var result = new RefundPaymentResult();
 
@@ -899,7 +970,7 @@ namespace Nop.Plugin.Payments.BerkutPay.Services
                                             <tid>{terminalId}</tid>
                                             <tranDateRequired>1</tranDateRequired>
                                             <return>
-                                                <amount></amount>
+                                                <amount>{amount}</amount>
                                                 <currencyCode>TL</currencyCode>
                                                 <hostLogKey>{hostlogkey}</hostLogKey>
                                             </return>

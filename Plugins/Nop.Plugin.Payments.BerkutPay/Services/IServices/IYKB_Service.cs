@@ -28,6 +28,8 @@ namespace Nop.Plugin.Payments.BerkutPay.Services.IServices
         Task<ProcessPaymentResult> SendStandartSaleRequestAsync(ProcessPaymentRequest processPaymentRequest);
         Task<ProcessPaymentResult> SendStandarAuthRequestAsync(ProcessPaymentRequest processPaymentRequest);
 
-        Task<RefundPaymentResult> RefundYKBAsync(RefundPaymentRequest refundPaymentRequest)
+        Task<RefundPaymentResult> RefundYKBAsync(RefundPaymentRequest refundPaymentRequest);
+
+        Task<CapturePaymentResult> CapturePosnetAsync(CapturePaymentRequest capturePaymentRequest);
     }
 }

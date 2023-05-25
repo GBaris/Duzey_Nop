@@ -22,12 +22,19 @@
                     <input type="hidden" asp-for="YKB_OPEN_A_NEW_WINDOW" value="@Model.YKB_OPEN_A_NEW_WINDOW" />
                     <input type="hidden" asp-for="YKB_THREE_D" value="@Model.YKB_THREE_D" />
                     <input type="hidden" asp-for="YKB_PROVISION" value="@Model.YKB_PROVISION" />
+                    <input type="hidden" asp-for="YKB_INSTALLMENT_IsActive" value="@Model.YKB_INSTALLMENT_IsActive" />
+                    <input type="hidden" asp-for="YKB_INSTALLMENT_2" value="@Model.YKB_INSTALLMENT_2" />
+                    <input type="hidden" asp-for="YKB_INSTALLMENT_3" value="@Model.YKB_INSTALLMENT_3" />
+                    <input type="hidden" asp-for="YKB_INSTALLMENT_4" value="@Model.YKB_INSTALLMENT_4" />
+                    <input type="hidden" asp-for="YKB_INSTALLMENT_6" value="@Model.YKB_INSTALLMENT_6" />
+
 
                     @*\\ Yapı Kredi //*@
 
                     <div class="card-body">
                         <div class="col">
-                            <div class="form-group row">  @*Yapı Kredi Bankasi satırı*@
+                            <div class="form-group row">
+                                @*Yapı Kredi Bankasi satırı*@
                                 <div class="col-md-3">
                                     <nop-override-store-checkbox asp-for="YKB_IsActive_OverrideForStore" asp-input="YKB_IsActive" asp-store-scope="@Model.ActiveStoreScopeConfiguration" />
                                     <nop-label asp-for="YKB_IsActive" />
@@ -37,7 +44,8 @@
                                     <span asp-validation-for="YKB_IsActive"></span>
                                 </div>
                             </div>
-                            <div class="form-group row">  @*Garanti Bankasi satırı*@
+                            <div class="form-group row">
+                                @*Garanti Bankasi satırı*@
                                 <div class="col-md-3">
                                     <nop-override-store-checkbox asp-for="GB_IsActive_OverrideForStore" asp-input="GB_IsActive" asp-store-scope="@Model.ActiveStoreScopeConfiguration" />
                                     <nop-label asp-for="GB_IsActive" />
@@ -155,6 +163,55 @@
                                 <div class="col-md-6">
                                     <nop-editor asp-for="YKB_PROVISION" />
                                     <span asp-validation-for="YKB_PROVISION"></span>
+                                </div>
+                            </div>
+                            <div class="form-group row">
+                                <div class="col-md-3">
+                                    <nop-override-store-checkbox asp-for="YKB_INSTALLMENT_IsActive_OverrideForStore" asp-input="YKB_INSTALLMENT_IsActive" asp-store-scope="@Model.ActiveStoreScopeConfiguration" />
+                                    <nop-label asp-for="YKB_INSTALLMENT_IsActive" />
+                                </div>
+                                <div class="col-md-6">
+                                    <nop-editor asp-for="YKB_INSTALLMENT_IsActive" />
+                                    <span asp-validation-for="YKB_INSTALLMENT_IsActive"></span>
+                                </div>
+                            </div>
+                            <div class="form-group row intallment_options">
+                                <div class="col-md-3">
+                                    <label class="control-label"></label>
+                                </div>
+                                <div class="col-md-6" >
+                                    <div class="row">
+                                        <div class="col-md-6" style="display:flex; align-items:start">
+                                            <nop-editor asp-for="YKB_INSTALLMENT_2" />
+                                            <span asp-validation-for="YKB_INSTALLMENT_2"></span>
+                                            <nop-override-store-checkbox asp-for="YKB_INSTALLMENT_2_OverrideForStore" asp-input="YKB_INSTALLMENT_2" asp-store-scope="@Model.ActiveStoreScopeConfiguration"  />
+                                            <nop-label asp-for="YKB_INSTALLMENT_2" style="margin-left: 5px; text-align: left;"/>
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-6" style="display:flex; align-items:start">
+                                            <nop-editor asp-for="YKB_INSTALLMENT_3" />
+                                            <span asp-validation-for="YKB_INSTALLMENT_3"></span>
+                                            <nop-override-store-checkbox asp-for="YKB_INSTALLMENT_3_OverrideForStore" asp-input="YKB_INSTALLMENT_3" asp-store-scope="@Model.ActiveStoreScopeConfiguration" />
+                                            <nop-label asp-for="YKB_INSTALLMENT_3" style="margin-left: 5px; text-align: left;" />
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-6" style="display:flex; align-items:start">
+                                            <nop-editor asp-for="YKB_INSTALLMENT_4" />
+                                            <span asp-validation-for="YKB_INSTALLMENT_4"></span>
+                                            <nop-override-store-checkbox asp-for="YKB_INSTALLMENT_4_OverrideForStore" asp-input="YKB_INSTALLMENT_4" asp-store-scope="@Model.ActiveStoreScopeConfiguration" />
+                                            <nop-label asp-for="YKB_INSTALLMENT_4" style="margin-left: 5px; text-align: left;" />
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-6" style="display:flex; align-items:start">
+                                            <nop-editor asp-for="YKB_INSTALLMENT_6" />
+                                            <span asp-validation-for="YKB_INSTALLMENT_6"></span>
+                                            <nop-override-store-checkbox asp-for="YKB_INSTALLMENT_6_OverrideForStore" asp-input="YKB_INSTALLMENT_6" asp-store-scope="@Model.ActiveStoreScopeConfiguration" />
+                                            <nop-label asp-for="YKB_INSTALLMENT_6" style="margin-left: 5px; text-align: left;" />
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -294,6 +351,24 @@
             });
         } else {
             $("#garantiBankasiToggle").css("cursor", "not-allowed");
+        }
+    });
+
+    $(function () {
+        $(".intallment_options").hide();
+
+        $("input[name='YKB_INSTALLMENT_IsActive']").change(function () {
+            if ($(this).is(":checked")) {
+                $(".intallment_options").slideDown();
+            } else {
+                $(".intallment_options").slideUp();
+            }
+        });
+
+        if ($("input[name='YKB_INSTALLMENT_IsActive']").is(":checked")) {
+            $(".intallment_options").slideDown();
+        } else {
+            $(".intallment_options").slideUp();
         }
     });
 </script>
