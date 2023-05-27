@@ -417,7 +417,7 @@ namespace Nop.Plugin.Payments.BerkutPay.Services
             var tempMac = GetMacData("Xid", "Amount");
             processPaymentRequest.CustomValues.Add("tempMac", tempMac);
 
-            if (resolveMerchantResult.MdStatus != "1")
+            if (resolveMerchantResult.MdStatus == "1")
             {
                 processPaymentRequest.CustomValues.Add("MdStatus", resolveMerchantResult.MdStatus);
                 var placeOrderResult = await _orderProcessingService.PlaceOrderAsync(processPaymentRequest);

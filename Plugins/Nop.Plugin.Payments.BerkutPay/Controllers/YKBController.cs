@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Nop.Core;
 using Nop.Core.Domain.Orders;
+using Nop.Core.Http.Extensions;
 using Nop.Data;
 using Nop.Plugin.Payments.BerkutPay.Models.YKBModels;
 using Nop.Plugin.Payments.BerkutPay.Services.IServices;
@@ -66,6 +67,9 @@ namespace Nop.Plugin.Payments.BerkutPay.Controllers
         [HttpPost]
         public async Task<IActionResult> ThreeDRedirectAsync(IFormCollection form)
         {
+            var processPaymentRequestTEst = HttpContext.Session.Get<ProcessPaymentRequest>("OrderPaymentInfo");
+            var bankorderId = HttpContext.Session.GetString("BankOrderId");
+
             if (_ykbService.IsValidForm(form))
             {
                 var bankData = form["BankPacket"];
@@ -119,7 +123,7 @@ namespace Nop.Plugin.Payments.BerkutPay.Controllers
 
                 var placeOrderResult = await _orderProcessingService.PlaceOrderAsync(processPaymentRequest);
 
-                
+
 
                 return RedirectToRoute("CheckoutCompleted", new { orderId = placeOrderResult.PlacedOrder.Id });
             }

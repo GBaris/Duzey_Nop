@@ -101,13 +101,13 @@ namespace Nop.Plugin.Payments.BerkutPay.Controllers
                 YKB_MERCHANT_INIT_URL = !string.IsNullOrEmpty(model.YKB_MERCHANT_INIT_URL) ? model.YKB_MERCHANT_INIT_URL : existingSettings.YKB_MERCHANT_INIT_URL,
                 YKB_MERCHANT_RETURN_URL = !string.IsNullOrEmpty(model.YKB_MERCHANT_RETURN_URL) ? model.YKB_MERCHANT_RETURN_URL : existingSettings.YKB_MERCHANT_RETURN_URL,
                 YKB_OPEN_A_NEW_WINDOW = model.YKB_OPEN_A_NEW_WINDOW != false ? model.YKB_OPEN_A_NEW_WINDOW : existingSettings.YKB_OPEN_A_NEW_WINDOW,
-                YKB_THREE_D = model.YKB_THREE_D != false ? model.YKB_THREE_D : existingSettings.YKB_THREE_D,
-                YKB_PROVISION = model.YKB_PROVISION != false ? model.YKB_PROVISION : existingSettings.YKB_PROVISION,
-                YKB_INSTALLMENT_IsActive = model.YKB_INSTALLMENT_IsActive != false ? model.YKB_INSTALLMENT_IsActive : existingSettings.YKB_INSTALLMENT_IsActive,
-                YKB_INSTALLMENT_2 = model.YKB_INSTALLMENT_2 != false ? model.YKB_INSTALLMENT_2 : existingSettings.YKB_INSTALLMENT_2,
-                YKB_INSTALLMENT_3 = model.YKB_INSTALLMENT_3 != false ? model.YKB_INSTALLMENT_3 : existingSettings.YKB_INSTALLMENT_3,
-                YKB_INSTALLMENT_4 = model.YKB_INSTALLMENT_4 != false ? model.YKB_INSTALLMENT_4 : existingSettings.YKB_INSTALLMENT_4,
-                YKB_INSTALLMENT_6 = model.YKB_INSTALLMENT_6 != false ? model.YKB_INSTALLMENT_6 : existingSettings.YKB_INSTALLMENT_6,
+                YKB_THREE_D = model.YKB_THREE_D,
+                YKB_PROVISION = model.YKB_PROVISION,
+                YKB_INSTALLMENT_IsActive = model.YKB_INSTALLMENT_IsActive,
+                YKB_INSTALLMENT_2 = model.YKB_INSTALLMENT_2,
+                YKB_INSTALLMENT_3 = model.YKB_INSTALLMENT_3,
+                YKB_INSTALLMENT_4 = model.YKB_INSTALLMENT_4,
+                YKB_INSTALLMENT_6 = model.YKB_INSTALLMENT_6,
 
 
                 #endregion
